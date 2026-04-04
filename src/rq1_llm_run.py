@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 from src.config import RunConfig
@@ -8,20 +9,28 @@ from src.pipeline import run_experiment
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run RQ1 prompt experiments for a CVE."
+        description="Run RQ1 prompt experiments for one CVE or the full dataset."
     )
+
     parser.add_argument(
         "--dataset-dir",
         type=Path,
         required=True,
         help="Path to the dataset root directory.",
     )
-    parser.add_argument(
+
+    target_group = parser.add_mutually_exclusive_group(required=True)
+    target_group.add_argument(
         "--cve",
         type=str,
-        required=True,
-        help="CVE identifier, e.g. CVE-2021-41110",
+        help="Single CVE identifier, e.g. CVE-2021-41110",
     )
+    target_group.add_argument(
+        "--all-cves",
+        action="store_true",
+        help="Run all CVE folders in the dataset.",
+    )
+
     parser.add_argument(
         "--model",
         type=str,
@@ -62,6 +71,7 @@ def parse_args() -> RunConfig:
     config = RunConfig(
         dataset_dir=args.dataset_dir,
         cve=args.cve,
+        run_all_cves=args.all_cves,
         model=args.model,
         provider=args.provider,
         out_dir=args.out_dir,

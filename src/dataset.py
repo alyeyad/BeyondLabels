@@ -4,12 +4,6 @@ from typing import Iterable
 
 
 def find_cve(cve: str, dataset_dir: Path) -> tuple[str | None, str | None]:
-    """
-    Find the CVE folder under Java or Python.
-
-    Returns:
-        (folder_name, language) if found, otherwise (None, None)
-    """
     search_roots = [("Java", dataset_dir / "Java"), ("Python", dataset_dir / "Python")]
 
     for language, root in search_roots:
@@ -27,14 +21,30 @@ def find_cve(cve: str, dataset_dir: Path) -> tuple[str | None, str | None]:
     return None, None
 
 
+def list_all_cve_folders(dataset_dir: Path) -> list[tuple[str, str]]:
+    """
+    Return all dataset CVE folders as (folder_name, language).
+    Example: ("CVE-2021-41110_log4j", "Java")
+    """
+    results: list[tuple[str, str]] = []
+
+    for language in ("Java", "Python"):
+        root = dataset_dir / language
+        if not root.exists():
+            continue
+
+        for entry in sorted(root.iterdir(), key=lambda p: p.name):
+            if entry.is_dir() and entry.name.startswith("CVE-"):
+                results.append((entry.name, language))
+
+    return results
+
+
 def get_file_combinations(
     cve_folder: str,
     language: str,
     dataset_dir: Path,
 ) -> list[list[str]] | None:
-    """
-    Load the annotated input file combinations for a CVE.
-    """
     path = dataset_dir / language / cve_folder / "annotations" / "input_filenames.json"
     if not path.exists():
         return None
@@ -50,9 +60,6 @@ def get_file_combinations(
 
 
 def flatten_file_combinations(file_combinations: Iterable[Iterable[str]]) -> set[str]:
-    """
-    Flatten nested file combinations into a unique set of relative file paths.
-    """
     return {
         relative_path
         for combination in file_combinations
@@ -66,12 +73,6 @@ def read_file_contents(
     slug: str,
     file_combinations: Iterable[Iterable[str]],
 ) -> dict[str, str]:
-    """
-    Read all unique source files referenced by the file combinations.
-
-    Returns:
-        A mapping from relative dataset path to file contents.
-    """
     file_contents: dict[str, str] = {}
     file_set = flatten_file_combinations(file_combinations)
 

@@ -9,10 +9,6 @@ import tiktoken
 
 import transformers
 # ========== CONFIGURATION ==========
-
-OUTPUT_DIR = "model_outputs"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
 # Supported platforms: gpt, deepseek
 MODEL_PROVIDERS = {
     "openai": {

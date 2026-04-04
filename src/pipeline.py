@@ -1,34 +1,37 @@
 from datetime import datetime
 
-
-from config import RunConfig
-from dataset import find_cve, get_file_combinations, read_file_contents
-from prompts import construct_prompt, get_prompts
-from llm_runner.runner import send_prompt, setup_client
 from llm_runner.logger import save_log
+from llm_runner.runner import send_prompt, setup_client
+
+from .config import RunConfig
+from .dataset import (
+    find_cve,
+    get_file_combinations,
+    list_all_cve_folders,
+    read_file_contents,
+)
+from .prompts import construct_prompt, get_prompts
 
 
 def make_output_filename(
-    cve_id: str,
+    cve: str,
     model: str,
     prompt_name: str,
     language: str,
     timestamp: str | None = None,
 ) -> str:
-    """
-    Build a safe output filename for a run log.
-    """
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    return (
-        f"{model}_run_{cve_id}_{prompt_name}_{language}_{timestamp}.json"
-        .replace("/", "__")
-    )
+    safe_cve = cve.replace("/", "__")
+    safe_model = model.replace("/", "__")
+
+    return f"{safe_cve}_{safe_model}_run_{prompt_name}_{language}_{timestamp}.json"
 
 
 def save_run_log(
     *,
+    cve: str,
     config: RunConfig,
     prompt_name: str,
     language: str,
@@ -43,7 +46,7 @@ def save_run_log(
     Save one experiment run to disk.
     """
     out_file = make_output_filename(
-        cve_id=config.cve,
+        cve=cve,
         model=config.model,
         prompt_name=prompt_name,
         language=language,
@@ -51,11 +54,11 @@ def save_run_log(
 
     save_log(
         {
-            "cve": config.cve,
+            "cve": cve,
             "file_combination": file_combination,
             "prompt_name": prompt_name,
             "language": language,
-            "model": config.model.replace('/','__'),
+            "model": config.model,
             "provider": config.provider,
             "prompt": input_prompt,
             "input": input_text,
@@ -70,9 +73,6 @@ def save_run_log(
 
 
 def print_prompt_preview(prompt_name: str, input_prompt: str, input_text: str) -> None:
-    """
-    Print a short preview of the prompt and code input.
-    """
     print(f"\n[Prompt: {prompt_name}]")
     print(input_prompt[:200] + "..." if len(input_prompt) > 200 else input_prompt)
     print("==" * 20)
@@ -80,17 +80,16 @@ def print_prompt_preview(prompt_name: str, input_prompt: str, input_text: str) -
     print("Sending ...")
 
 
-def run_experiment(config: RunConfig) -> None:
-    """
-    Run the RQ1 experiment for a single CVE.
-    """
-    folder_name, language = find_cve(config.cve, config.dataset_dir)
-    if not folder_name or not language:
-        raise FileNotFoundError(f"No CVE found for {config.cve}")
-
-    prompt_dict = get_prompts(config)
-    if not prompt_dict:
-        raise ValueError("No prompts were loaded.")
+def run_single_cve(
+    *,
+    config: RunConfig,
+    cve: str,
+    folder_name: str,
+    language: str,
+    client,
+    prompt_dict: dict[str, str],
+) -> None:
+    print(f"\n=== Running {cve} ({language}) ===")
 
     file_combinations = get_file_combinations(
         cve_folder=folder_name,
@@ -98,7 +97,8 @@ def run_experiment(config: RunConfig) -> None:
         dataset_dir=config.dataset_dir,
     )
     if not file_combinations:
-        raise ValueError("No input file combinations found.")
+        print(f"[WARN] No input file combinations found for {cve}")
+        return
 
     source_code_contents = read_file_contents(
         dataset_dir=config.dataset_dir,
@@ -107,9 +107,8 @@ def run_experiment(config: RunConfig) -> None:
         file_combinations=file_combinations,
     )
     if not source_code_contents:
-        raise ValueError("No source files could be read.")
-
-    client = setup_client(config.provider)
+        print(f"[WARN] No source files could be read for {cve}")
+        return
 
     for file_combo in file_combinations:
         raw_code = {
@@ -139,7 +138,7 @@ def run_experiment(config: RunConfig) -> None:
                     config.model,
                 )
             except Exception as exc:
-                print(f"[ERROR] send_prompt failed with {prompt_name}: {exc}")
+                print(f"[ERROR] send_prompt failed with {prompt_name} for {cve}: {exc}")
                 continue
 
             preview = response[:200] + "..." if len(response) > 200 else response
@@ -147,6 +146,7 @@ def run_experiment(config: RunConfig) -> None:
 
             try:
                 save_run_log(
+                    cve=cve,
                     config=config,
                     prompt_name=prompt_name,
                     language=language,
@@ -158,5 +158,46 @@ def run_experiment(config: RunConfig) -> None:
                     usage=usage
                 )
             except Exception as exc:
-                print(f"[ERROR] save_log failed with {prompt_name}: {exc}")
+                print(f"[ERROR] save_log failed with {prompt_name} for {cve}: {exc}")
                 continue
+
+
+def run_experiment(config: RunConfig) -> None:
+    prompt_dict = get_prompts(config)
+    if not prompt_dict:
+        raise ValueError("No prompts were loaded.")
+
+    client = setup_client(config.provider)
+
+    if config.run_all_cves:
+        targets = list_all_cve_folders(config.dataset_dir)
+        if not targets:
+            raise ValueError("No CVE folders found in the dataset.")
+
+        print(f"Found {len(targets)} CVE folders.")
+
+        for folder_name, language in targets:
+            cve = folder_name.split("_", 1)[0]
+            run_single_cve(
+                config=config,
+                cve=cve,
+                folder_name=folder_name,
+                language=language,
+                client=client,
+                prompt_dict=prompt_dict,
+            )
+    else:
+        assert config.cve is not None
+
+        folder_name, language = find_cve(config.cve, config.dataset_dir)
+        if not folder_name or not language:
+            raise FileNotFoundError(f"No CVE found for {config.cve}")
+
+        run_single_cve(
+            config=config,
+            cve=config.cve,
+            folder_name=folder_name,
+            language=language,
+            client=client,
+            prompt_dict=prompt_dict,
+        )

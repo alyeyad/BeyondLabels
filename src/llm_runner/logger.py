@@ -4,8 +4,7 @@ import os
 import uuid
 from datetime import datetime
 
-def save_log(log_data: dict, fname:str, out_dir="logs", name_prefix="run"):
-    os.makedirs(out_dir, exist_ok=True)
+def save_log(log_data: dict, fname:str, out_dir):
     log_data["timestamp"] = log_data.get("timestamp", datetime.utcnow().isoformat() + "Z")
 
     with open(os.path.join(out_dir, fname), "w", encoding="utf-8") as f:

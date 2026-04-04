@@ -12,12 +12,14 @@ DEFAULT_BASELINE_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "baseline_prompt.txt"
 @dataclass(slots=True)
 class RunConfig:
     dataset_dir: Path
-    cve: str
+    cve: str | None = None
+    run_all_cves: bool = False
+
     model: str = "gpt-4o"
     provider: str = "openai"
     out_dir: Path = Path("output")
-    prompt_mode: str = "all"   # one of: "llmql", "baseline", "all"
-    actual_label: int = 1
+    prompt_mode: str = "all"
+    actual_label: bool = True
 
     llmql_prompt_path: Path = field(default_factory=lambda: DEFAULT_LLMQL_PROMPT_PATH)
     baseline_prompt_path: Path = field(default_factory=lambda: DEFAULT_BASELINE_PROMPT_PATH)
@@ -35,8 +37,11 @@ class RunConfig:
                 f"Expected one of {sorted(allowed_prompt_modes)}."
             )
 
-        if not self.cve or not self.cve.strip():
-            raise ValueError("cve must be a non-empty string.")
+        if self.run_all_cves and self.cve:
+            raise ValueError("Use either `cve` or `run_all_cves=True`, not both.")
+
+        if not self.run_all_cves and (self.cve is None or not self.cve.strip()):
+            raise ValueError("You must provide a CVE unless run_all_cves=True.")
 
     def validate_paths(self) -> None:
         if not self.dataset_dir.exists():
