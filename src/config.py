@@ -1,25 +1,32 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROMPT_TEMPLATES_DIR = PROJECT_ROOT / "prompt_templates"
+
+DEFAULT_LLMQL_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "llmql_prompt.txt"
+DEFAULT_BASELINE_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "baseline_prompt.txt"
 
 
 @dataclass(slots=True)
 class RunConfig:
     dataset_dir: Path
     cve: str
-    llmql_prompt_path: Path
-    baseline_prompt_path: Path
     model: str = "gpt-4o"
     provider: str = "openai"
-    out_dir: Path = Path(".")
+    out_dir: Path = Path("output")
     prompt_mode: str = "all"   # one of: "llmql", "baseline", "all"
     actual_label: int = 1
 
+    llmql_prompt_path: Path = field(default_factory=lambda: DEFAULT_LLMQL_PROMPT_PATH)
+    baseline_prompt_path: Path = field(default_factory=lambda: DEFAULT_BASELINE_PROMPT_PATH)
+
     def __post_init__(self) -> None:
-        # Normalize path-like inputs in case strings are passed in.
         self.dataset_dir = Path(self.dataset_dir)
+        self.out_dir = Path(self.out_dir)
         self.llmql_prompt_path = Path(self.llmql_prompt_path)
         self.baseline_prompt_path = Path(self.baseline_prompt_path)
-        self.out_dir = Path(self.out_dir)
 
         allowed_prompt_modes = {"llmql", "baseline", "all"}
         if self.prompt_mode not in allowed_prompt_modes:

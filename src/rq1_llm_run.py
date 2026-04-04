@@ -1,10 +1,9 @@
 import argparse
 from pathlib import Path
-
 from dotenv import load_dotenv
 
-from config import RunConfig
-from pipeline import run_experiment
+from src.config import RunConfig
+from src.pipeline import run_experiment
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,18 +23,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="CVE identifier, e.g. CVE-2021-41110",
     )
     parser.add_argument(
-        "--llmql-prompt-path",
-        type=Path,
-        required=True,
-        help="Path to the LLMQL prompt template file.",
-    )
-    parser.add_argument(
-        "--baseline-prompt-path",
-        type=Path,
-        required=True,
-        help="Path to the baseline prompt template file.",
-    )
-    parser.add_argument(
         "--model",
         type=str,
         default="gpt-4o",
@@ -50,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--out-dir",
         type=Path,
-        default=Path("."),
+        default=Path("output"),
         help="Directory where logs/results will be written.",
     )
     parser.add_argument(
@@ -62,8 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--actual-label",
-        type=int,
-        default=1,
+        type=bool,
+        default=True,
         help="Ground-truth label to store in the run log.",
     )
     return parser
@@ -75,8 +62,6 @@ def parse_args() -> RunConfig:
     config = RunConfig(
         dataset_dir=args.dataset_dir,
         cve=args.cve,
-        llmql_prompt_path=args.llmql_prompt_path,
-        baseline_prompt_path=args.baseline_prompt_path,
         model=args.model,
         provider=args.provider,
         out_dir=args.out_dir,
@@ -89,9 +74,9 @@ def parse_args() -> RunConfig:
 
 def main() -> None:
     config = parse_args()
-    load_dotenv()
     run_experiment(config)
 
 
 if __name__ == "__main__":
+    load_dotenv()
     main()
