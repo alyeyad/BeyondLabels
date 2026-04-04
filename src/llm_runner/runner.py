@@ -120,6 +120,16 @@ def send_prompt(client, context: str, user_input: str, model: str,
             reasoning_content = response.choices[0].message.reasoning_content
         except Exception:
             pass
+        try:
+            usage_data = response.usage
+            usage = {
+                "input_tokens": usage_data.prompt_tokens,
+                "output_tokens": usage_data.completion_tokens,
+                "total_tokens": usage_data.total_tokens
+            }
+        except:
+            usage = None
+            pass
     elif "llama" in model:
         response = client.chat.completions.create(
             model=model,
@@ -132,11 +142,11 @@ def send_prompt(client, context: str, user_input: str, model: str,
         input_tokens = response.usage.prompt_tokens
         output_tokens = response.usage.completion_tokens
         total_tokens = input_tokens + output_tokens
-        usage = {}
-        usage["input_tokens"] = input_tokens
-        usage["output_tokens"] = output_tokens
-        usage["total_tokens"] = total_tokens
-
+        usage = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens
+        }
     else:
         response = client.chat.completions.create(
             model=model,
@@ -149,5 +159,15 @@ def send_prompt(client, context: str, user_input: str, model: str,
         try:
             reasoning_content = response.choices[0].message.reasoning_content
         except:
+            pass
+        try:
+            usage_data = response.usage
+            usage = {
+                "input_tokens": usage_data.prompt_tokens,
+                "output_tokens": usage_data.completion_tokens,
+                "total_tokens": usage_data.total_tokens
+            }
+        except:
+            usage = None
             pass
     return answer_content, reasoning_content, usage
