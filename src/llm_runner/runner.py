@@ -8,6 +8,7 @@ import anthropic
 import tiktoken
 
 import transformers
+
 # ========== CONFIGURATION ==========
 # Supported platforms: gpt, deepseek
 MODEL_PROVIDERS = {
@@ -29,6 +30,7 @@ MODEL_PROVIDERS = {
     }
 }
 
+
 # ========== CLIENT INITIALIZATION ==========
 def setup_client(provider: str):
     if provider not in MODEL_PROVIDERS:
@@ -39,23 +41,6 @@ def setup_client(provider: str):
     api_key = os.getenv(info["api_key_env"])
     return OpenAI(api_key=api_key, base_url=info["base_url"])
 
-# ========== TOKEN COUNT ==========
-def count_tokens(model: str, context: str, user_input: str) -> int:
-    token_count = None
-    if "gpt" in model:
-        encoding = tiktoken.encoding_for_model(model)
-        token_count = len(encoding.encode(context + user_input))
-    else:
-        if "deepseek" in model:
-            chat_tokenizer_dir = r"deepseek-tokenizer"
-
-        tokenizer = transformers.AutoTokenizer.from_pretrained(
-            chat_tokenizer_dir, trust_remote_code=True
-        )
-
-        result = tokenizer.encode(context + user_input)
-        token_count = len(result)
-    return token_count
 
 def extract_text(message):
     return "".join(
@@ -63,6 +48,7 @@ def extract_text(message):
         for block in message.content
         if block.type == "text"
     )
+
 
 # ========== GPT CALL ==========
 def send_prompt(client, context: str, user_input: str, model: str,

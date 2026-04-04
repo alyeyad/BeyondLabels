@@ -3,24 +3,27 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 PROMPT_TEMPLATES_DIR = PROJECT_ROOT / "prompt_templates"
+DATASET_DIR = PROJECT_ROOT / "data" / "PathVul"
 
 DEFAULT_LLMQL_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "llmql_prompt.txt"
 DEFAULT_BASELINE_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "baseline_prompt.txt"
+DEFAULT_OUT_DIR = PROJECT_ROOT / "output"
 
 
 @dataclass(slots=True)
 class RunConfig:
-    dataset_dir: Path
     cve: str | None = None
     run_all_cves: bool = False
 
     model: str = "gpt-4o"
     provider: str = "openai"
-    out_dir: Path = Path("output")
     prompt_mode: str = "all"
     actual_label: bool = True
 
+    dataset_dir: Path = field(default_factory=lambda: DATASET_DIR)
+    out_dir: Path = field(default_factory=lambda: DEFAULT_OUT_DIR)
     llmql_prompt_path: Path = field(default_factory=lambda: DEFAULT_LLMQL_PROMPT_PATH)
     baseline_prompt_path: Path = field(default_factory=lambda: DEFAULT_BASELINE_PROMPT_PATH)
 

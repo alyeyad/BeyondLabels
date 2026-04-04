@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -10,13 +9,6 @@ from src.pipeline import run_experiment
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run RQ1 prompt experiments for one CVE or the full dataset."
-    )
-
-    parser.add_argument(
-        "--dataset-dir",
-        type=Path,
-        required=True,
-        help="Path to the dataset root directory.",
     )
 
     target_group = parser.add_mutually_exclusive_group(required=True)
@@ -44,12 +36,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="LLM provider name.",
     )
     parser.add_argument(
-        "--out-dir",
-        type=Path,
-        default=Path("output"),
-        help="Directory where logs/results will be written.",
-    )
-    parser.add_argument(
         "--prompt-mode",
         type=str,
         choices=["llmql", "baseline", "all"],
@@ -69,12 +55,10 @@ def parse_args() -> RunConfig:
     args = build_parser().parse_args()
 
     config = RunConfig(
-        dataset_dir=args.dataset_dir,
         cve=args.cve,
         run_all_cves=args.all_cves,
         model=args.model,
         provider=args.provider,
-        out_dir=args.out_dir,
         prompt_mode=args.prompt_mode,
         actual_label=args.actual_label,
     )
