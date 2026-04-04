@@ -1,0 +1,54 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="requests-cache" />
+          <option value="pandas" />
+          <option value="neo4j-driver" />
+          <option value="numpy" />
+          <option value="ipython-cypher" />
+          <option value="networkx" />
+          <option value="graphviz" />
+          <option value="pronto" />
+          <option value="lxml" />
+          <option value="nltk" />
+          <option value="SQLAlchemy" />
+          <option value="scipy" />
+          <option value="scikit-learn" />
+          <option value="connexion" />
+          <option value="Flask" />
+          <option value="Flask-Cors" />
+          <option value="pymysql" />
+          <option value="requests" />
+          <option value="CacheControl" />
+          <option value="lockfile" />
+          <option value="simple-crypt" />
+          <option value="tomark" />
+          <option value="md-toc" />
+          <option value="pickledb" />
+          <option value="pytest" />
+          <option value="joblib" />
+          <option value="PyYAML" />
+          <option value="ujson" />
+          <option value="treelib" />
+          <option value="reasoner-validator" />
+          <option value="asyncio" />
+          <option value="aiohttp" />
+          <option value="boto3" />
+          <option value="tornado" />
+          <option value="markupsafe" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyStubPackagesAdvertiser" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="scipy" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
