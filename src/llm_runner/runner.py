@@ -61,6 +61,12 @@ def count_tokens(model: str, context: str, user_input: str) -> int:
         token_count = len(result)
     return token_count
 
+def extract_text(message):
+    return "".join(
+        block.text
+        for block in message.content
+        if block.type == "text"
+    )
 
 # ========== GPT CALL ==========
 def send_prompt(client, context: str, user_input: str, model: str,
@@ -69,13 +75,16 @@ def send_prompt(client, context: str, user_input: str, model: str,
         {"role": "system", "content": context},
         {"role": "user", "content": user_input},
     ]
-
+    usage = None
+    answer_content = ""
+    reasoning_content = ""
     extra = {"extra_body": {"enable_thinking": True}} if enable_thinking else {}
     if "claude" in model:
         with client.messages.stream(
                 model=model,
                 temperature=0.0,
                 system=context,
+                max_tokens=64_000,
                 messages=[
                     {
                         "role": "user",
@@ -86,8 +95,17 @@ def send_prompt(client, context: str, user_input: str, model: str,
             stream.until_done()
 
             final_message = stream.get_final_message()
-            usage = final_message.usage
-        return final_message, "", usage
+            if final_message:
+                answer_content = extract_text(final_message)
+                usage_data = final_message.usage
+                input_tokens = usage_data.input_tokens
+                output_tokens = usage_data.output_tokens
+                total_tokens = input_tokens + output_tokens
+                usage = {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                }
     elif model.startswith("gpt-5"):
         response = client.chat.completions.create(
             model=model,
@@ -100,8 +118,25 @@ def send_prompt(client, context: str, user_input: str, model: str,
         answer_content = response.choices[0].message.content
         try:
             reasoning_content = response.choices[0].message.reasoning_content
-        except Exception as e:
-            reasoning_content = ""
+        except Exception:
+            pass
+    elif "llama" in model:
+        response = client.chat.completions.create(
+            model=model,
+            temperature=0.0,
+            response_format={"type": "json_object"},
+            messages=messages
+        )
+        answer_content = response.choices[0].message.content
+        reasoning_content = ""
+        input_tokens = response.usage.prompt_tokens
+        output_tokens = response.usage.completion_tokens
+        total_tokens = input_tokens + output_tokens
+        usage = {}
+        usage["input_tokens"] = input_tokens
+        usage["output_tokens"] = output_tokens
+        usage["total_tokens"] = total_tokens
+
     else:
         response = client.chat.completions.create(
             model=model,
@@ -113,17 +148,6 @@ def send_prompt(client, context: str, user_input: str, model: str,
         answer_content = response.choices[0].message.content
         try:
             reasoning_content = response.choices[0].message.reasoning_content
-        except Exception:
-            reasoning_content = ""
-        usage = None
-        if "llama" in model:
-            text = response.choices[0].message.content
-            input_tokens = response.usage.prompt_tokens
-            output_tokens = response.usage.completion_tokens
-            total_tokens = input_tokens + output_tokens
-            usage["output"] = text
-            usage["input_tokens"] = input_tokens
-            usage["output_tokens"] = output_tokens
-            usage["total_tokens"] = total_tokens
-            usage["actual_label"] = 1
+        except:
+            pass
     return answer_content, reasoning_content, usage

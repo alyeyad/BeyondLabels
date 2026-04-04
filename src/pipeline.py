@@ -55,7 +55,7 @@ def save_run_log(
             "file_combination": file_combination,
             "prompt_name": prompt_name,
             "language": language,
-            "model": config.model,
+            "model": config.model.replace('/','__'),
             "provider": config.provider,
             "prompt": input_prompt,
             "input": input_text,
