@@ -37,6 +37,7 @@ def save_run_log(
     response: str,
     reasoning_content: str,
     file_combination: list[str],
+    usage
 ) -> None:
     """
     Save one experiment run to disk.
@@ -61,6 +62,7 @@ def save_run_log(
             "output": response,
             "reasoning_content": reasoning_content,
             "actual_label": config.actual_label,
+            "usage": usage
         },
         out_dir=str(config.out_dir),
         fname=out_file,
@@ -130,7 +132,7 @@ def run_experiment(config: RunConfig) -> None:
             print_prompt_preview(prompt_name, input_prompt, input_text)
 
             try:
-                response, reasoning_content = send_prompt(
+                response, reasoning_content, usage = send_prompt(
                     client,
                     input_prompt,
                     input_text,
@@ -153,6 +155,7 @@ def run_experiment(config: RunConfig) -> None:
                     response=response,
                     reasoning_content=reasoning_content,
                     file_combination=file_combo,
+                    usage=usage
                 )
             except Exception as exc:
                 print(f"[ERROR] save_log failed with {prompt_name}: {exc}")
