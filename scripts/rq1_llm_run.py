@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from src.config import RunConfig
 from src.pipeline import run_experiment
 
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run the RQ1 PathVul experiment."
