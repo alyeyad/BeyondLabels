@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+import numpy as np
+import seaborn as sns
+import os
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
@@ -33,10 +36,10 @@ from .matching import (
 
 
 def process_output_files(
-    logs_dir: Path,
-    pathvul_dataset_dir: Path,
-    negative_dataset_dir: Path,
-    recursive: bool = False,
+        logs_dir: Path,
+        pathvul_dataset_dir: Path,
+        negative_dataset_dir: Path,
+        recursive: bool = False,
 ) -> Tuple[
     Dict[str, Dict[str, Any]],
     Dict[str, Dict[str, Any]],
@@ -288,7 +291,8 @@ def find_best_match(matches: List[Dict[str, Any]], prompt_data: Dict[str, Any]) 
     return best_match
 
 
-def find_best_lcs_match(lcs_matches: Dict[Tuple[str, int], Dict[str, Any]], prompt_data: Dict[str, Any]) -> Dict[str, Any]:
+def find_best_lcs_match(lcs_matches: Dict[Tuple[str, int], Dict[str, Any]], prompt_data: Dict[str, Any]) -> Dict[
+    str, Any]:
     best_lcs: Dict[str, Any] = {
         "runID": prompt_data.get("runID"),
         "promptType": prompt_data.get("prompt_name", "unknown"),
@@ -332,8 +336,8 @@ def find_best_lcs_match(lcs_matches: Dict[Tuple[str, int], Dict[str, Any]], prom
 
 
 def create_refined_matches(
-    all_matches: Dict[str, Dict[str, Any]],
-    source_sink_dict: Dict[str, Dict[str, List[Dict[str, Any]]]],
+        all_matches: Dict[str, Dict[str, Any]],
+        source_sink_dict: Dict[str, Dict[str, List[Dict[str, Any]]]],
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     node_refined: Dict[str, Dict[str, Any]] = {}
     lcs_refined: Dict[str, Dict[str, Any]] = {}
@@ -348,7 +352,7 @@ def create_refined_matches(
                 item
                 for item in source_sink_dict.get(cve_id, {}).get(run_id, [])
                 if best_node_match.get("pathHash") == item.get("pathHash")
-                and best_node_match.get("outputPathInd", -1) == item.get("outputPathInd", -2)
+                   and best_node_match.get("outputPathInd", -1) == item.get("outputPathInd", -2)
             ]
             best_node_match.update(
                 {
@@ -390,8 +394,8 @@ def convert_to_dataframe(refined_matches: Dict[str, Dict[str, Any]]) -> pd.DataF
 
 
 def create_combined_results_df(
-    node_refined_matches: Dict[str, Dict[str, Any]],
-    lcs_refined_matches: Dict[str, Dict[str, Any]],
+        node_refined_matches: Dict[str, Dict[str, Any]],
+        lcs_refined_matches: Dict[str, Dict[str, Any]],
 ) -> pd.DataFrame:
     df_node = convert_to_dataframe(node_refined_matches)
     df_lcs = convert_to_dataframe(lcs_refined_matches)
@@ -450,11 +454,13 @@ def create_combined_results_df(
     ]
     ordered = [col for col in preferred_order if col in combined.columns]
     remaining = [col for col in combined.columns if col not in ordered]
-    return combined[ordered + remaining]
+    result = combined[ordered + remaining]
+    df_unique = result.loc[result.groupby(['CVE', 'promptType'])['nor'].idxmax()].reset_index(drop=True)
+    return df_unique
 
 
 def create_negative_results_df(
-    negative_runs: Dict[str, Dict[str, Any]],
+        negative_runs: Dict[str, Dict[str, Any]],
 ) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
 
@@ -483,7 +489,7 @@ def create_negative_results_df(
     return pd.DataFrame(rows)
 
 
-def add_overlap_bins(df: pd.DataFrame, score_col: str, out_col: str = "overlap_bin2") -> pd.DataFrame:
+def add_overlap_bins(df: pd.DataFrame, score_col: str, out_col: str = "overlap_bin") -> pd.DataFrame:
     df = df.copy()
     df[out_col] = pd.cut(
         df[score_col].fillna(0),
@@ -494,41 +500,191 @@ def add_overlap_bins(df: pd.DataFrame, score_col: str, out_col: str = "overlap_b
     return df
 
 
-def save_scatter_plot(df: pd.DataFrame, score_col: str, output_path: Path, title: str) -> None:
-    if df.empty:
-        return
-    plot_df = add_overlap_bins(df, score_col)
-    plot_df = plot_df.sort_values(by=score_col, ascending=False).reset_index(drop=True)
+def plot_nor_scatter(
+    df,
+    output_path=None,
+    x_col="CVE",
+    overlap_col="nor",
+    title="",
+    figsize=(20, 5),
+    show=False,
+):
+    df = df[df["promptType"] == "llmql"]
+    # Replace -1 with 0
+    df[overlap_col] = df[overlap_col].replace({-1: 0})
 
-    fig, ax = plt.subplots(figsize=(20, 5))
-    label_to_marker = {"Low": "o", "Medium": "^", "High": "s"}
-    for label in ["Low", "Medium", "High"]:
-        subset = plot_df[plot_df["overlap_bin2"] == label]
-        if subset.empty:
-            continue
-        ax.scatter(subset.index, subset[score_col], label=label, marker=label_to_marker[label], s=40)
+    # Create categorical bins
+    df["overlap_bin"] = pd.cut(
+        df[overlap_col],
+        bins=[0, 0.25, 0.75, 1.0],
+        labels=["Low", "Medium", "High"],
+        include_lowest=True
+    )
 
-    x_label_col = "CVE" if "CVE" in plot_df.columns else ("sampleID" if "sampleID" in plot_df.columns else None)
+    # Sort descending by overlap
+    num_sorted = df.sort_values(by=overlap_col, ascending=False).copy()
 
+    # Rename for plotting
+    num_sorted = num_sorted.rename(columns={
+        overlap_col: "Node Overlap Ratio",
+        "overlap_bin": "NOR Level"
+    })
+
+    plt.figure(figsize=figsize)
+
+    sns.scatterplot(
+        data=num_sorted,
+        x=x_col,
+        y="Node Overlap Ratio",
+        hue="NOR Level",
+        palette=["#0072B2", "#E69F00", "#009E73"],
+        s=85
+    )
+
+    # Horizontal reference lines
     for y in [0.0, 0.25, 0.5, 0.75, 1.0]:
-        ax.axhline(y=y, linestyle="--", linewidth=1, color="gray", alpha=0.6)
+        plt.axhline(
+            y=y,
+            linestyle="--",
+            linewidth=1,
+            color="gray",
+            alpha=0.6
+        )
 
-    ax.set_xticks(range(len(plot_df)))
-    if x_label_col is not None:
-        ax.set_xticklabels(plot_df[x_label_col], rotation=90)
-        ax.set_xlabel(x_label_col)
+    plt.yticks([0, 0.25, 0.5, 0.75, 1.0])
+    plt.xlabel("CVEs")
+    plt.ylabel("Node Overlap Ratio (NOR)")
+    plt.xticks([])
+    plt.title(title)
+    plt.legend(loc="upper right")
+
+    if output_path:
+        plt.savefig(
+            output_path,
+            format="pdf",
+            bbox_inches="tight",
+        )
+
+    if show:
+        plt.show()
     else:
-        ax.set_xticklabels(range(len(plot_df)), rotation=90)
-        ax.set_xlabel("index")
+        plt.close()
 
-    ax.set_ylabel(score_col)
-    ax.set_title(title)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0.1)
-    plt.close(fig)
+    return df, num_sorted
 
 
 def save_json(path: Path, payload: Any) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(json_ready(payload), f, indent=2)
+
+
+def create_model_summary_table(combined_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build the RQ table:
+      - median overlap (NOR) per model over all runs
+      - median LCS overlap (LCNR) per model over all runs
+      - mean real source found per model over runs with overlap > 0 only
+      - mean real sink found per model over runs with overlap > 0 only
+    """
+    if combined_df.empty:
+        return pd.DataFrame(
+            columns=[
+                "model",
+                "median_overlap",
+                "median_lcs_overlap",
+                "mean_real_src_found",
+                "mean_real_sink_found",
+            ]
+        )
+
+    df = combined_df.copy()
+    df = df[df["promptType"] == "llmql"]
+
+    for col in ["nor", "lcnr", "sourceHit", "sinkHit", "numOverlapNodes"]:
+        if col not in df.columns:
+            df[col] = 0
+
+    df["nor"] = pd.to_numeric(df["nor"], errors="coerce").fillna(0.0)
+    df["lcnr"] = pd.to_numeric(df["lcnr"], errors="coerce").fillna(0.0)
+    df["sourceHit"] = pd.to_numeric(df["sourceHit"], errors="coerce").fillna(0.0)
+    df["sinkHit"] = pd.to_numeric(df["sinkHit"], errors="coerce").fillna(0.0)
+    df["numOverlapNodes"] = pd.to_numeric(df["numOverlapNodes"], errors="coerce").fillna(0.0)
+
+    # Main summary over all runs
+    summary_all = (
+        df.groupby("model", dropna=False)
+        .agg(
+            median_overlap=("nor", "median"),
+            median_lcs_overlap=("lcnr", "median")
+        )
+        .reset_index()
+    )
+
+    # Source/sink means only where overlap > 0
+    overlap_df = df[(df["nor"] > 0) | (df["numOverlapNodes"] > 0)].copy()
+
+    if overlap_df.empty:
+        summary_all["mean_real_src_found"] = 0.0
+        summary_all["mean_real_sink_found"] = 0.0
+    else:
+        summary_overlap = (
+            overlap_df.groupby("model", dropna=False)
+            .agg(
+                mean_real_src_found=("sourceHit", "mean"),
+                mean_real_sink_found=("sinkHit", "mean")
+            )
+            .reset_index()
+        )
+
+        summary_all = summary_all.merge(summary_overlap, on="model", how="left")
+        summary_all["mean_real_src_found"] = summary_all["mean_real_src_found"].fillna(0.0)
+        summary_all["mean_real_sink_found"] = summary_all["mean_real_sink_found"].fillna(0.0)
+
+    for col in [
+        "median_overlap",
+        "median_lcs_overlap",
+        "mean_real_src_found",
+        "mean_real_sink_found",
+    ]:
+        summary_all[col] = summary_all[col].round(3)
+
+    summary_all = summary_all.sort_values(
+        by=["median_overlap", "median_lcs_overlap", "mean_real_src_found", "mean_real_sink_found"],
+        ascending=False,
+    ).reset_index(drop=True)
+
+    summary_all = summary_all.rename(
+        columns={
+            "model": "Model",
+            "median_overlap": "Median NOR",
+            "median_lcs_overlap": "Median LCNR",
+            "mean_real_src_found": "Mean Source Hit | NOR > 0",
+            "mean_real_sink_found": "Mean Sink Hit | NOR > 0",
+        }
+    )
+
+    return summary_all
+
+
+def add_overlap_bins(
+        df: pd.DataFrame,
+        score_col: str,
+        out_col: str = "overlap_bin",
+) -> pd.DataFrame:
+    """
+    Exact bins:
+      Low    = [0, 0.25)
+      Medium = [0.25, 0.75)
+      High   = [0.75, 1]
+    """
+    out = df.copy()
+    eps = 1e-9
+
+    out[out_col] = pd.cut(
+        out[score_col].fillna(0).clip(lower=0, upper=1),
+        bins=[0.0, 0.25, 0.75, 1.0 + eps],
+        labels=["Low", "Medium", "High"],
+        include_lowest=True,
+        right=False,
+    )
+    return out

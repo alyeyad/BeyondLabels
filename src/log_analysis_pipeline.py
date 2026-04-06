@@ -12,6 +12,8 @@ from src.log_analyzer.reporting import (
     get_source_sink_detections,
     process_output_files,
     save_json,
+    plot_nor_scatter,
+    create_model_summary_table
 )
 from src.log_analyzer.stats_utils import analyze_at_threshold
 
@@ -83,7 +85,9 @@ def build_negative_summary(negative_df: pd.DataFrame) -> dict[str, Any]:
 
 def run_log_analysis(config: AnalysisConfig) -> None:
     data_dir = config.output_dir / "data"
+    img_dir = config.output_dir / "images"
     data_dir.mkdir(parents=True, exist_ok=True)
+    img_dir.mkdir(parents=True, exist_ok=True)
 
     print("[1/6] Processing logs...")
     rq1_matches, negative_runs, excluded_files, _ = process_output_files(
@@ -111,6 +115,13 @@ def run_log_analysis(config: AnalysisConfig) -> None:
         )
         if not combined_df.empty:
             combined_df.to_csv(data_dir / "rq1_combined_refined_match.csv", index=False)
+        model_summary_df = create_model_summary_table(combined_df)
+        model_summary_df.to_csv(data_dir / "rq1_model_summary.csv", index=False)
+
+        plot_nor_scatter(
+            combined_df,
+            output_path=img_dir / "rq1_nor_binned_scatter.pdf"
+        )
     else:
         print("[2/6] No RQ1 logs found.")
 
