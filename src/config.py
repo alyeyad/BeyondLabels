@@ -100,28 +100,28 @@ class RunConfig:
             return ["Java", "Python"]
         return [self.language]
 
-
 @dataclass(slots=True)
 class AnalysisConfig:
     logs_dir: Path = DEFAULT_ANALYSIS_LOGS_DIR
-    dataset_dir: Path = DEFAULT_PATHVUL_DATASET_DIR
+    pathvul_dataset_dir: Path = DEFAULT_PATHVUL_DATASET_DIR
+    negative_dataset_dir: Path = DEFAULT_NEGATIVE_DATASET_DIR
     output_dir: Path = DEFAULT_ANALYSIS_OUT_DIR
 
     recursive: bool = True
-    tokenizer_model: str = "gpt-4o"
     thresholds: list[float] = field(default_factory=lambda: list(DEFAULT_THRESHOLDS))
 
     def __post_init__(self) -> None:
         self.logs_dir = Path(self.logs_dir)
-        self.dataset_dir = Path(self.dataset_dir)
+        self.pathvul_dataset_dir = Path(self.pathvul_dataset_dir)
+        self.negative_dataset_dir = Path(self.negative_dataset_dir)
         self.output_dir = Path(self.output_dir)
 
     def validate_paths(self) -> None:
         if not self.logs_dir.exists():
             raise FileNotFoundError(f"Logs directory does not exist: {self.logs_dir}")
-        if not self.dataset_dir.exists():
-            raise FileNotFoundError(f"Dataset directory does not exist: {self.dataset_dir}")
+        if not self.pathvul_dataset_dir.exists():
+            raise FileNotFoundError(f"PathVul dataset directory does not exist: {self.pathvul_dataset_dir}")
+        if not self.negative_dataset_dir.exists():
+            raise FileNotFoundError(f"Negative dataset directory does not exist: {self.negative_dataset_dir}")
 
-        self.output_dir.mkdir(parents=True, exist_ok=True)
         (self.output_dir / "data").mkdir(parents=True, exist_ok=True)
-        (self.output_dir / "images").mkdir(parents=True, exist_ok=True)
