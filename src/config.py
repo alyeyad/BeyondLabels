@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -18,8 +18,13 @@ DEFAULT_PATHVUL_DATASET_DIR = PROJECT_ROOT / "data" / "PathVul"
 DEFAULT_NEGATIVE_DATASET_DIR = PROJECT_ROOT / "data" / "negative_samples"
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output"
-DEFAULT_RQ1_OUT_DIR = DEFAULT_OUTPUT_DIR / "pathvul_run_logs"
-DEFAULT_NEGATIVE_OUT_DIR = DEFAULT_OUTPUT_DIR / "negative_samples_run_logs"
+DEFAULT_RQ1_OUT_DIR = DEFAULT_OUTPUT_DIR / "runs" / "pathvul_run_logs"
+DEFAULT_NEGATIVE_OUT_DIR = DEFAULT_OUTPUT_DIR / "runs" / "negative_samples_run_logs"
+
+DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_RQ1_OUT_DIR
+DEFAULT_ANALYSIS_OUT_DIR = DEFAULT_OUTPUT_DIR / "analysis" / "log_analysis"
+
+DEFAULT_THRESHOLDS = [0.25, 0.5, 0.75, 1.0]
 
 
 @dataclass(slots=True)
@@ -62,26 +67,6 @@ class RunConfig:
         else:
             self.out_dir = Path(self.out_dir)
 
-        allowed_tasks = {"rq1", "negative"}
-        if self.task not in allowed_tasks:
-            raise ValueError(
-                f"Invalid task: {self.task!r}. Expected one of {sorted(allowed_tasks)}."
-            )
-
-        allowed_languages = {"Java", "Python", "all"}
-        if self.language not in allowed_languages:
-            raise ValueError(
-                f"Invalid language: {self.language!r}. "
-                f"Expected one of {sorted(allowed_languages)}."
-            )
-
-        allowed_prompt_modes = {"llmql", "baseline", "all"}
-        if self.prompt_mode not in allowed_prompt_modes:
-            raise ValueError(
-                f"Invalid prompt_mode: {self.prompt_mode!r}. "
-                f"Expected one of {sorted(allowed_prompt_modes)}."
-            )
-
         if self.task == "rq1":
             if self.run_all_cves and self.cve:
                 raise ValueError("Use either `cve` or `run_all_cves=True`, not both.")
@@ -114,3 +99,29 @@ class RunConfig:
         if self.language == "all":
             return ["Java", "Python"]
         return [self.language]
+
+
+@dataclass(slots=True)
+class AnalysisConfig:
+    logs_dir: Path = DEFAULT_ANALYSIS_LOGS_DIR
+    dataset_dir: Path = DEFAULT_PATHVUL_DATASET_DIR
+    output_dir: Path = DEFAULT_ANALYSIS_OUT_DIR
+
+    recursive: bool = True
+    tokenizer_model: str = "gpt-4o"
+    thresholds: list[float] = field(default_factory=lambda: list(DEFAULT_THRESHOLDS))
+
+    def __post_init__(self) -> None:
+        self.logs_dir = Path(self.logs_dir)
+        self.dataset_dir = Path(self.dataset_dir)
+        self.output_dir = Path(self.output_dir)
+
+    def validate_paths(self) -> None:
+        if not self.logs_dir.exists():
+            raise FileNotFoundError(f"Logs directory does not exist: {self.logs_dir}")
+        if not self.dataset_dir.exists():
+            raise FileNotFoundError(f"Dataset directory does not exist: {self.dataset_dir}")
+
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "data").mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "images").mkdir(parents=True, exist_ok=True)
