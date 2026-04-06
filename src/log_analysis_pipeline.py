@@ -13,7 +13,8 @@ from src.log_analyzer.reporting import (
     process_output_files,
     save_json,
     plot_nor_scatter,
-    create_model_summary_table
+    create_model_summary_table,
+    create_single_model_cwe_table
 )
 from src.log_analyzer.stats_utils import analyze_at_threshold
 
@@ -85,7 +86,7 @@ def build_negative_summary(negative_df: pd.DataFrame) -> dict[str, Any]:
 
 def run_log_analysis(config: AnalysisConfig) -> None:
     data_dir = config.output_dir / "data"
-    img_dir = config.output_dir / "images"
+    img_dir = config.output_dir / "plots"
     data_dir.mkdir(parents=True, exist_ok=True)
     img_dir.mkdir(parents=True, exist_ok=True)
 
@@ -118,10 +119,20 @@ def run_log_analysis(config: AnalysisConfig) -> None:
         model_summary_df = create_model_summary_table(combined_df)
         model_summary_df.to_csv(data_dir / "rq1_model_summary.csv", index=False)
 
+        best_model = "claude-sonnet-4-5"
+
         plot_nor_scatter(
             combined_df,
-            output_path=img_dir / "rq1_nor_binned_scatter.pdf"
+            model=best_model,
+            output_path=img_dir / f"rq1_nor_binned_scatter_{best_model.replace('/','__')}.pdf"
         )
+        cwe_table = create_single_model_cwe_table(
+            combined_df,
+            model_name=best_model,
+            target_cwes=(22, 20, 94, 502),
+        )
+
+        cwe_table.to_csv(data_dir / f"rq1_cwe_table_{best_model.replace('/','__')}.csv", index=False)
     else:
         print("[2/6] No RQ1 logs found.")
 

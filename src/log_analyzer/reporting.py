@@ -455,7 +455,7 @@ def create_combined_results_df(
     ordered = [col for col in preferred_order if col in combined.columns]
     remaining = [col for col in combined.columns if col not in ordered]
     result = combined[ordered + remaining]
-    df_unique = result.loc[result.groupby(['CVE', 'promptType'])['nor'].idxmax()].reset_index(drop=True)
+    df_unique = result.loc[result.groupby(['CVE', 'promptType', "model"])['nor'].idxmax()].reset_index(drop=True)
     return df_unique
 
 
@@ -506,10 +506,11 @@ def plot_nor_scatter(
     x_col="CVE",
     overlap_col="nor",
     title="",
+    model="claude-sonnet-4-5",
     figsize=(20, 5),
     show=False,
 ):
-    df = df[df["promptType"] == "llmql"]
+    df = df[(df["promptType"] == "llmql")&(df["model"] == model)]
     # Replace -1 with 0
     df[overlap_col] = df[overlap_col].replace({-1: 0})
 
@@ -687,4 +688,143 @@ def add_overlap_bins(
         include_lowest=True,
         right=False,
     )
+    return out
+
+import math
+import re
+from typing import Any, Iterable
+
+import pandas as pd
+
+
+def extract_cwe_ints(value: Any) -> set[int]:
+    """
+    Robustly extract CWE ids as ints from values like:
+      ['CWE-77', 'CWE-78']
+      "['CWE-77', 'CWE-78']"
+      "CWE-77, CWE-78"
+      ["cwe_77", "CWE 78"]
+    """
+    found: set[int] = set()
+
+    if value is None:
+        return found
+
+    if isinstance(value, int):
+        return {value}
+
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            found.update(extract_cwe_ints(item))
+        return found
+
+    text = str(value)
+
+    # Prefer CWE-like patterns
+    matches = re.findall(r"cwe[\s\-_]*?(\d+)", text, flags=re.IGNORECASE)
+    if matches:
+        return {int(m) for m in matches}
+
+    return found
+
+
+def create_single_model_cwe_table(
+    combined_df: pd.DataFrame,
+    model_name: str,
+    target_cwes: Iterable[int] = (22, 20, 94, 502),
+    empty_value: float = float("nan"),
+) -> pd.DataFrame:
+    """
+    Build a table like:
+
+        Metric   CWE-22  CWE-20  CWE-94  CWE-502
+        NOR      ...
+        LCNR     ...
+        Src-HR   ...
+        Sink-HR  ...
+
+    Notes:
+    - Filters to one model only.
+    - A row belongs to a CWE if that CWE id is present in its `cwes` field.
+    - Src-HR / Sink-HR are computed only over rows with overlap > 0.
+    """
+    if combined_df.empty:
+        columns = ["Metric"] + [f"CWE-{c}" for c in target_cwes]
+        return pd.DataFrame(columns=columns)
+
+    df = combined_df.copy()
+    df = df[df["promptType"] == "llmql"]
+
+    required_cols = ["model", "cwes", "nor", "lcnr", "sourceHit", "sinkHit", "numOverlapNodes"]
+    for col in required_cols:
+        if col not in df.columns:
+            if col == "cwes":
+                df[col] = [[] for _ in range(len(df))]
+            else:
+                df[col] = 0
+
+    df = df[df["model"] == model_name].copy()
+
+    if df.empty:
+        columns = ["Metric"] + [f"CWE-{c}" for c in target_cwes]
+        return pd.DataFrame(columns=columns)
+
+    df["nor"] = pd.to_numeric(df["nor"], errors="coerce").fillna(0.0)
+    df["lcnr"] = pd.to_numeric(df["lcnr"], errors="coerce").fillna(0.0)
+    df["sourceHit"] = pd.to_numeric(df["sourceHit"], errors="coerce").fillna(0.0)
+    df["sinkHit"] = pd.to_numeric(df["sinkHit"], errors="coerce").fillna(0.0)
+    df["numOverlapNodes"] = pd.to_numeric(df["numOverlapNodes"], errors="coerce").fillna(0.0)
+
+    df["_cwe_ints"] = df["cwes"].apply(extract_cwe_ints)
+
+    rows = {
+        "NOR": [],
+        "LCNR": [],
+        "Src-HR": [],
+        "Sink-HR": [],
+    }
+
+    for cwe in target_cwes:
+        cwe_df = df[df["_cwe_ints"].apply(lambda s: cwe in s)].copy()
+
+        if cwe_df.empty:
+            rows["NOR"].append(empty_value)
+            rows["LCNR"].append(empty_value)
+            rows["Src-HR"].append(empty_value)
+            rows["Sink-HR"].append(empty_value)
+            continue
+
+        rows["NOR"].append(float(cwe_df["nor"].median()))
+        rows["LCNR"].append(float(cwe_df["lcnr"].median()))
+
+        overlap_df = cwe_df[(cwe_df["nor"] > 0) | (cwe_df["numOverlapNodes"] > 0)].copy()
+        if overlap_df.empty:
+            rows["Src-HR"].append(empty_value)
+            rows["Sink-HR"].append(empty_value)
+        else:
+            rows["Src-HR"].append(float(overlap_df["sourceHit"].mean()))
+            rows["Sink-HR"].append(float(overlap_df["sinkHit"].mean()))
+
+    out = pd.DataFrame(
+        {
+            "Metric": ["NOR", "LCNR", "Src-HR", "Sink-HR"],
+            **{
+                f"CWE-{cwe}": [
+                    rows["NOR"][i],
+                    rows["LCNR"][i],
+                    rows["Src-HR"][i],
+                    rows["Sink-HR"][i],
+                ]
+                for i, cwe in enumerate(target_cwes)
+            },
+        }
+    )
+
+    # Round numeric cells for paper tables
+    for col in out.columns:
+        if col != "Metric":
+            out[col] = out[col].apply(
+                lambda x: round(x, 2) if pd.notna(x) and not isinstance(x, str) else x
+            )
+
     return out
