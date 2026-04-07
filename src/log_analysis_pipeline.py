@@ -5,20 +5,23 @@ from typing import Any
 import pandas as pd
 
 from src.config import AnalysisConfig
-from src.log_analyzer.reporting import (
-    create_combined_results_df,
+from src.log_analyzer.export import save_json
+from src.log_analyzer.ingest import process_output_files
+from src.log_analyzer.plots.distributions import save_success_failure_violin_plots
+from src.log_analyzer.plots.overlap import plot_nor_scatter
+from src.log_analyzer.refine import create_refined_matches, get_source_sink_detections
+from src.log_analyzer.stats.hypothesis import analyze_at_threshold
+from src.log_analyzer.stats.logistic import create_predictive_power_table
+from src.log_analyzer.tables.classification_tables import (
     create_negative_results_df,
-    create_refined_matches,
-    get_source_sink_detections,
-    process_output_files,
-    save_json,
-    plot_nor_scatter,
-    create_model_summary_table,
-    create_single_model_cwe_table, save_success_failure_violin_plots
+    create_prompt_type_label_comparison_table,
 )
-from src.log_analyzer.stats_utils import analyze_at_threshold, json_to_nor_table_csv, create_predictive_power_table, \
-    create_prompt_type_label_comparison_table
-
+from src.log_analyzer.tables.path_tables import (
+    create_combined_results_df,
+    create_model_summary_table,
+    create_single_model_cwe_table,
+)
+from src.log_analyzer.tables.stats_tables import json_to_nor_table_csv
 
 def run_threshold_tests(
     df: pd.DataFrame,
