@@ -82,7 +82,6 @@ def process_output_files(
         if task == "negative":
             sample_id = extract_sample_id(full_log)
             if not sample_id or not language:
-                print(sample_id)
                 excluded_files.append(filepath.name)
                 continue
 
@@ -102,7 +101,6 @@ def process_output_files(
                 print(f"[process_output_files] Failed loading negative dataset entry for {sample_folder}: {exc}")
                 excluded_files.append(filepath.name)
                 continue
-
             op_label = determine_output_label(output_parsed)
             actual_label = int(
                 full_log.get(
@@ -252,7 +250,7 @@ def find_best_match(matches: List[Dict[str, Any]], prompt_data: Dict[str, Any]) 
         "outputPathLen": prompt_data.get("medianOpPathLen", -1),
         "cwes": prompt_data.get("cwe_id", []),
         "neededFiles": prompt_data.get("needed_files", []),
-        "input_lines": len(str(prompt_data.get("input", "")).splitlines()),
+        "numInputLines": len(str(prompt_data.get("input", "")).splitlines()),
         "numInputFiles": len(prompt_data.get("needed_files", [])),
         "outputFilesMatched": [],
         "numOutputFilesMatches": -1,
@@ -308,7 +306,7 @@ def find_best_lcs_match(lcs_matches: Dict[Tuple[str, int], Dict[str, Any]], prom
         "actualLabel": prompt_data.get("actualLabel", 1),
         "cwes": prompt_data.get("cwe_id", []),
         "neededFiles": prompt_data.get("needed_files", []),
-        "input_lines": len(str(prompt_data.get("input", "")).splitlines()),
+        "numInputLines": len(str(prompt_data.get("input", "")).splitlines()),
         "numInputFiles": len(prompt_data.get("needed_files", [])),
         "numInputTokens": prompt_data.get("numInputTokens", 0),
         "numOutputTokens": prompt_data.get("numOutputTokens", 0),
@@ -480,7 +478,7 @@ def create_negative_results_df(
                 "numInputTokens": values.get("numInputTokens", 0),
                 "numOutputTokens": values.get("numOutputTokens", 0),
                 "numInputFiles": len(values.get("needed_files", [])),
-                "input_lines": len(str(values.get("input", "")).splitlines()),
+                "numInputLines": len(str(values.get("input", "")).splitlines()),
                 "neededFiles": values.get("needed_files", []),
                 "sourceFiles": values.get("sourceFiles", []),
             }
@@ -828,3 +826,137 @@ def create_single_model_cwe_table(
             )
 
     return out
+
+
+def save_success_failure_violin_plots(
+    df: pd.DataFrame,
+    output_path: Path,
+    threshold: float = 0.5,
+    score_col: str = "nor",
+    feature_map: dict[str, str] | None = None,
+    palette: dict[str, str] | None = None,
+) -> None:
+    """
+    Plot violin distributions for success vs failure at a given threshold.
+
+    Success = score_col >= threshold
+    Failure = score_col < threshold
+    """
+    if df.empty or score_col not in df.columns:
+        return
+
+    if feature_map is None:
+        feature_map = {
+            "realPathLen": "Vulnerable Path Length",
+            "numInputFiles": "Number of Files per Path",
+            "numInputTokens": "Number of Input Tokens",
+            "numInputLines": "Number of Input Lines",
+        }
+
+    if palette is None:
+        palette = {
+            "Success": "#bdbdbd",
+            "Failure": "#bdbdbd",
+        }
+
+    plot_df = df.copy()
+    plot_df[score_col] = pd.to_numeric(plot_df[score_col], errors="coerce").fillna(0.0)
+
+    df_success = plot_df[plot_df[score_col] >= threshold].copy()
+    df_failure = plot_df[plot_df[score_col] < threshold].copy()
+
+    available_features = [col for col in feature_map if col in plot_df.columns]
+    if not available_features:
+        return
+
+    n_features = len(available_features)
+    ncols = 2
+    nrows = (n_features + ncols - 1) // ncols
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 7))
+    axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
+
+    for i, col in enumerate(available_features):
+        cur_success = pd.to_numeric(df_success[col], errors="coerce").dropna()
+        cur_failure = pd.to_numeric(df_failure[col], errors="coerce").dropna()
+
+        if cur_success.empty and cur_failure.empty:
+            axes[i].axis("off")
+            continue
+
+        df_plot = pd.DataFrame({
+            col: pd.concat([cur_success, cur_failure], ignore_index=True),
+            "source": (["Success"] * len(cur_success)) + (["Failure"] * len(cur_failure)),
+        })
+
+        sns.violinplot(
+            data=df_plot,
+            x="source",
+            y=col,
+            ax=axes[i],
+            hue="source",
+            palette=palette,
+            cut=0,
+            width=0.9,
+            inner="box",
+            inner_kws=dict(
+                box_width=12,
+                whis_width=2,
+                linewidth=0,
+            ),
+            legend=False,
+        )
+
+        for artist in getattr(axes[i], "artists", []):
+            artist.set_facecolor("black")
+            artist.set_edgecolor("black")
+
+        for line in axes[i].lines:
+            line.set_color("black")
+
+        med_success = float(cur_success.median()) if not cur_success.empty else None
+        med_fail = float(cur_failure.median()) if not cur_failure.empty else None
+
+        x_success = 0
+        x_failure = 1
+        half_width = 0.2
+
+        if med_success is not None:
+            axes[i].hlines(
+                med_success,
+                x_success - half_width,
+                x_success + half_width,
+                colors="black",
+                linestyles="dashed",
+                linewidth=2,
+                zorder=10,
+            )
+
+        if med_fail is not None:
+            axes[i].hlines(
+                med_fail,
+                x_failure - half_width,
+                x_failure + half_width,
+                colors="black",
+                linestyles="dashed",
+                linewidth=2,
+                zorder=10,
+            )
+
+        axes[i].set_title(feature_map[col])
+        axes[i].set_xlabel("")
+        axes[i].set_ylabel("")
+
+    for ax in axes[len(available_features):]:
+        ax.axis("off")
+
+    fig.text(
+        0.5,
+        0.02,
+        f"Violin plots of studied features for successful and unsuccessful path reconstructions at {score_col.upper()} = {threshold}.",
+        ha="center",
+        fontsize=10,
+    )
+    fig.tight_layout(rect=[0, 0.06, 1, 1])
+    fig.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0.1)
+    plt.close(fig)

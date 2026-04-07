@@ -14,32 +14,35 @@ from src.log_analyzer.reporting import (
     save_json,
     plot_nor_scatter,
     create_model_summary_table,
-    create_single_model_cwe_table
+    create_single_model_cwe_table, save_success_failure_violin_plots
 )
-from src.log_analyzer.stats_utils import analyze_at_threshold
+from src.log_analyzer.stats_utils import analyze_at_threshold, json_to_nor_table_csv, create_predictive_power_table, \
+    create_prompt_type_label_comparison_table
 
 
 def run_threshold_tests(
     df: pd.DataFrame,
     score_col: str,
+    model: str,
+    columns_to_test:list[str],
     thresholds: list[float],
 ) -> dict[float, dict[str, Any]]:
     if df.empty or score_col not in df.columns:
         return {}
-
-    numeric_cols = list(df.select_dtypes(include="number").columns)
+    df_copy = df.copy()
+    df_copy = df_copy[df_copy["model"] == model]
     excluded = {
         score_col,
         "outputLabel",
         "actualLabel",
         "labelCorrect",
     }
-    columns_to_test = [col for col in numeric_cols if col not in excluded]
+
 
     all_results: dict[float, dict[str, Any]] = {}
     for threshold in thresholds:
         all_results[threshold] = analyze_at_threshold(
-            df=df,
+            df=df_copy,
             threshold=threshold,
             columns_to_test=columns_to_test,
             score_col=score_col,
@@ -121,18 +124,44 @@ def run_log_analysis(config: AnalysisConfig) -> None:
 
         best_model = "claude-sonnet-4-5"
 
+        best_model_path_only_df = combined_df[(combined_df["model"] == best_model)&(combined_df["promptType"] == "llmql")].copy()
+        best_model_path_only_df.to_csv(data_dir / f"{best_model}_llmql.csv", index=False)
+
         plot_nor_scatter(
-            combined_df,
+            best_model_path_only_df,
             model=best_model,
             output_path=img_dir / f"rq1_nor_binned_scatter_{best_model.replace('/','__')}.pdf"
         )
         cwe_table = create_single_model_cwe_table(
-            combined_df,
+            best_model_path_only_df,
             model_name=best_model,
             target_cwes=(22, 20, 94, 502),
         )
 
         cwe_table.to_csv(data_dir / f"rq1_cwe_table_{best_model.replace('/','__')}.csv", index=False)
+        print("Writing RQ3 results")
+
+        stat_tests_result_dict = run_threshold_tests(best_model_path_only_df, "nor", best_model, config.features_to_test, config.thresholds)
+
+        # If your data is already in a Python dict:
+        stat_csv_path = data_dir / f"rq3_nor_stats_table_{best_model.replace("/","__")}.csv"
+        json_to_nor_table_csv(stat_tests_result_dict, stat_csv_path)
+        save_success_failure_violin_plots(
+            best_model_path_only_df,
+            output_path=img_dir / "rq3_success_failure_violin_nor_0.5.pdf",
+            threshold=0.5,
+            score_col="nor",
+        )
+        predictive_power_gpt4o_df = create_predictive_power_table(
+            best_model_path_only_df,
+            thresholds=config.thresholds,
+            score_col="nor",
+        )
+        predictive_power_gpt4o_df.to_csv(
+            data_dir / f"rq3_predictive_power_table_{best_model.replace("/","__")}.csv",
+            index=False,
+        )
+
     else:
         print("[2/6] No RQ1 logs found.")
 
@@ -141,6 +170,19 @@ def run_log_analysis(config: AnalysisConfig) -> None:
         negative_df = create_negative_results_df(negative_runs)
         if not negative_df.empty:
             negative_df.to_csv(data_dir / "negative_label_results.csv", index=False)
+        selected_models = ["deepseek-reasoner", "gpt-4o"]
+
+        prompt_comparison_df = create_prompt_type_label_comparison_table(
+            combined_df=combined_df,
+            negative_df=negative_df,
+            selected_models=selected_models,
+            prompt_order=("LLMQL", "Baseline"),
+        )
+
+        prompt_comparison_df.to_csv(
+            data_dir / "rq4_prompt_type_label_comparison.csv",
+            index=False,
+        )
     else:
         print("[5/6] No negative logs found.")
 

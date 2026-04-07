@@ -25,6 +25,7 @@ DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_RQ1_OUT_DIR
 DEFAULT_ANALYSIS_OUT_DIR = DEFAULT_OUTPUT_DIR / "analysis" / "log_analysis"
 
 DEFAULT_THRESHOLDS = [0.25, 0.5, 0.75, 1.0]
+DEFAULT_FEATURES = ["realPathLen", "numInputFiles", "numInputTokens", "numInputLines"]
 
 
 @dataclass(slots=True)
@@ -109,6 +110,7 @@ class AnalysisConfig:
 
     recursive: bool = True
     thresholds: list[float] = field(default_factory=lambda: list(DEFAULT_THRESHOLDS))
+    features_to_test: list[str] = field(default_factory=lambda: DEFAULT_FEATURES)
 
     def __post_init__(self) -> None:
         self.logs_dir = Path(self.logs_dir)
