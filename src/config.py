@@ -18,10 +18,9 @@ DEFAULT_PATHVUL_DATASET_DIR = PROJECT_ROOT / "data" / "PathVul"
 DEFAULT_NEGATIVE_DATASET_DIR = PROJECT_ROOT / "data" / "negative_samples"
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output"
-DEFAULT_RQ1_OUT_DIR = DEFAULT_OUTPUT_DIR / "runs" / "pathvul_run_logs"
-DEFAULT_NEGATIVE_OUT_DIR = DEFAULT_OUTPUT_DIR / "runs" / "negative_samples_run_logs"
+DEFAULT_LLMQL_RUNS_OUTPUT_DIR = DEFAULT_OUTPUT_DIR / "runs"
 
-DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_RQ1_OUT_DIR
+DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_LLMQL_RUNS_OUTPUT_DIR
 DEFAULT_ANALYSIS_OUT_DIR = DEFAULT_OUTPUT_DIR / "analysis" / "log_analysis"
 
 DEFAULT_THRESHOLDS = [0.25, 0.5, 0.75, 1.0]
@@ -60,11 +59,7 @@ class RunConfig:
             self.dataset_dir = Path(self.dataset_dir)
 
         if self.out_dir is None:
-            self.out_dir = (
-                DEFAULT_RQ1_OUT_DIR
-                if self.task == "rq1"
-                else DEFAULT_NEGATIVE_OUT_DIR
-            )
+            self.out_dir = DEFAULT_LLMQL_RUNS_OUTPUT_DIR
         else:
             self.out_dir = Path(self.out_dir)
 
