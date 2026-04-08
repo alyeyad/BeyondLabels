@@ -1,12 +1,12 @@
 from datetime import datetime
 from typing import Dict
 
-from src.config import RunConfig
 from src.llm_runner.logger import save_log
 from src.llm_runner.runner import send_prompt, setup_client
 
-from .dataset import get_file_combinations, list_all_cve_folders, read_file_contents
-from .prompts import construct_prompt, get_prompts
+from src.utils.config import RunConfig
+from src.utils.dataset import get_file_combinations, list_all_cve_folders, read_file_contents
+from src.utils.prompts import construct_prompt, get_prompts
 
 
 def make_output_filename(

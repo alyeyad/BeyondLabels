@@ -2,15 +2,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from src.config import RunConfig
 from src.llm_runner.logger import save_log
 from src.llm_runner.runner import send_prompt, setup_client
-from src.negative_dataset import (
+
+from src.utils.config import RunConfig
+from src.utils.negative_dataset import (
     get_sample_record,
     list_sample_folders,
     read_single_source_file,
 )
-from src.prompts import construct_prompt, get_prompts
+from src.utils.prompts import construct_prompt, get_prompts
 
 
 def make_output_filename(

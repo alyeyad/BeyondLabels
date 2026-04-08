@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Mapping
 
-from config import RunConfig
+from src.utils.config import RunConfig
 
 
 def load_prompt_file(path: Path) -> str:

@@ -1,8 +1,15 @@
 import argparse
 from pathlib import Path
 
+import csv
+import os
+import argparse
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
+
 from src.log_analysis_pipeline import run_log_analysis
-from src.config import AnalysisConfig
+from src.utils.config import AnalysisConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,6 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Thresholds used for RQ1 success/failure statistical tests.",
     )
+    parser.add_argument(
+        "--analysis-model",
+        type=str,
+        default=None,
+        help="Analysis model used for CWE analysis and success/failure statistical tests."
+    )
     return parser
 
 
@@ -69,6 +82,7 @@ def parse_args() -> AnalysisConfig:
 
     config = AnalysisConfig(
         logs_dir=args.logs_dir if args.logs_dir is not None else default_config.logs_dir,
+        analysis_model=args.analysis_model if args.analysis_model is not None else default_config.analysis_model,
         pathvul_dataset_dir=(
             args.pathvul_dataset_dir
             if args.pathvul_dataset_dir is not None

@@ -2,24 +2,17 @@ import argparse
 
 from dotenv import load_dotenv
 
-from src.config import RunConfig
-from src.pipeline import run_experiment
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
+
+from src.utils.config import RunConfig
+from src.negative_pipeline import run_negative_samples
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the RQ1 PathVul experiment."
-    )
-
-    target_group = parser.add_mutually_exclusive_group(required=True)
-    target_group.add_argument(
-        "--cve",
-        type=str,
-        help="Single CVE identifier, e.g. CVE-2021-41110",
-    )
-    target_group.add_argument(
-        "--all-cves",
-        action="store_true",
-        help="Run all CVEs in the dataset.",
+        description="Run the negative-samples single-file experiment."
     )
 
     parser.add_argument(
@@ -51,8 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--actual-label",
         type=int,
-        default=1,
-        help="Ground-truth label to store in the run log.",
+        default=0,
+        help="Ground-truth label to store in the run log for negative samples.",
     )
     return parser
 
@@ -61,10 +54,10 @@ def parse_args() -> RunConfig:
     args = build_parser().parse_args()
 
     config = RunConfig(
-        task="rq1",
+        task="negative",
         language=args.language,
-        cve=args.cve,
-        run_all_cves=args.all_cves,
+        cve=None,
+        run_all_cves=False,
         model=args.model,
         provider=args.provider,
         prompt_mode=args.prompt_mode,
@@ -76,7 +69,7 @@ def parse_args() -> RunConfig:
 
 def main() -> None:
     config = parse_args()
-    run_experiment(config)
+    run_negative_samples(config)
 
 
 if __name__ == "__main__":

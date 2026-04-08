@@ -7,8 +7,6 @@ import anthropic
 
 import tiktoken
 
-import transformers
-
 # ========== CONFIGURATION ==========
 # Supported platforms: gpt, deepseek
 MODEL_PROVIDERS = {
@@ -93,8 +91,6 @@ def send_prompt(client, context: str, user_input: str, model: str,
             model=model,
             messages=messages,
             stream=False,
-            reasoning_effort="high",
-            verbosity="high",
             **extra
         )
         answer_content = response.choices[0].message.content

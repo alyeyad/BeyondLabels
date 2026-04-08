@@ -8,7 +8,7 @@ PromptMode = Literal["llmql", "baseline", "all"]
 TaskName = Literal["rq1", "negative"]
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 PROMPT_TEMPLATES_DIR = PROJECT_ROOT / "prompt_templates"
 DEFAULT_LLMQL_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "llmql_prompt.txt"
@@ -21,11 +21,12 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output"
 DEFAULT_LLMQL_RUNS_OUTPUT_DIR = DEFAULT_OUTPUT_DIR / "runs"
 
 DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_LLMQL_RUNS_OUTPUT_DIR
-DEFAULT_ANALYSIS_OUT_DIR = DEFAULT_OUTPUT_DIR / "analysis" / "log_analysis"
+DEFAULT_ANALYSIS_OUT_DIR = DEFAULT_OUTPUT_DIR / "analysis"
 
 DEFAULT_THRESHOLDS = [0.25, 0.5, 0.75, 1.0]
 DEFAULT_FEATURES = ["realPathLen", "numInputFiles", "numInputTokens", "numInputLines"]
 
+DEFAULT_ANALYSIS_MODEL = "claude-sonnet-4-5"
 
 @dataclass(slots=True)
 class RunConfig:
@@ -103,7 +104,9 @@ class AnalysisConfig:
     negative_dataset_dir: Path = DEFAULT_NEGATIVE_DATASET_DIR
     output_dir: Path = DEFAULT_ANALYSIS_OUT_DIR
 
+    target_cwes: tuple[int] = (22, 20, 94, 502)
     recursive: bool = True
+    analysis_model: str = DEFAULT_ANALYSIS_MODEL
     thresholds: list[float] = field(default_factory=lambda: list(DEFAULT_THRESHOLDS))
     features_to_test: list[str] = field(default_factory=lambda: DEFAULT_FEATURES)
 

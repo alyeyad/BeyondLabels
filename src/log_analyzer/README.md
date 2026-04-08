@@ -42,7 +42,7 @@ DATASET_ROOT/
 ## Usage
 
 ```bash
-python analyze_logs.py \
+python analyze_runs.py \
   --logs-dir /path/to/logs \
   --dataset-dir /path/to/PathVul \
   --output-dir /path/to/output
@@ -51,7 +51,7 @@ python analyze_logs.py \
 Recursive scan:
 
 ```bash
-python analyze_logs.py \
+python analyze_runs.py \
   --logs-dir /path/to/logs \
   --dataset-dir /path/to/PathVul \
   --output-dir /path/to/output \

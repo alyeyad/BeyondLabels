@@ -4,7 +4,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.config import AnalysisConfig
+from src.utils.config import AnalysisConfig
 from src.log_analyzer.export import save_json
 from src.log_analyzer.ingest import process_output_files
 from src.log_analyzer.plots.distributions import save_success_failure_violin_plots
@@ -121,33 +121,31 @@ def run_log_analysis(config: AnalysisConfig) -> None:
             lcs_refined_matches,
         )
         if not combined_df.empty:
-            combined_df.to_csv(data_dir / "rq1_combined_refined_match.csv", index=False)
+            combined_df.to_csv(data_dir / "pathvul_results.csv", index=False)
         model_summary_df = create_model_summary_table(combined_df)
         model_summary_df.to_csv(data_dir / "rq1_model_summary.csv", index=False)
 
-        best_model = "claude-sonnet-4-5"
-
-        best_model_path_only_df = combined_df[(combined_df["model"] == best_model)&(combined_df["promptType"] == "llmql")].copy()
-        best_model_path_only_df.to_csv(data_dir / f"{best_model}_llmql.csv", index=False)
+        best_model_path_only_df = combined_df[(combined_df["model"] == config.analysis_model)&(combined_df["promptType"] == "llmql")].copy()
+        best_model_path_only_df.to_csv(data_dir / f"pathvul_best_model_{config.analysis_model}_llmql.csv", index=False)
 
         plot_nor_scatter(
             best_model_path_only_df,
-            model=best_model,
-            output_path=img_dir / f"rq1_nor_binned_scatter_{best_model.replace('/','__')}.pdf"
+            model=config.analysis_model,
+            output_path=img_dir / f"rq1_nor_binned_scatter_{config.analysis_model.replace('/','__')}.pdf"
         )
         cwe_table = create_single_model_cwe_table(
             best_model_path_only_df,
-            model_name=best_model,
-            target_cwes=(22, 20, 94, 502),
+            model_name=config.analysis_model,
+            target_cwes=config.target_cwes,
         )
 
-        cwe_table.to_csv(data_dir / f"rq1_cwe_table_{best_model.replace('/','__')}.csv", index=False)
+        cwe_table.to_csv(data_dir / f"rq1_cwe_table_{config.analysis_model.replace('/','__')}.csv", index=False)
         print("Writing RQ3 results")
 
-        stat_tests_result_dict = run_threshold_tests(best_model_path_only_df, "nor", best_model, config.features_to_test, config.thresholds)
+        stat_tests_result_dict = run_threshold_tests(best_model_path_only_df, "nor", config.analysis_model, config.features_to_test, config.thresholds)
 
         # If your data is already in a Python dict:
-        stat_csv_path = data_dir / f"rq3_nor_stats_table_{best_model.replace("/","__")}.csv"
+        stat_csv_path = data_dir / f"rq3_nor_stats_table_{config.analysis_model.replace("/","__")}.csv"
         json_to_nor_table_csv(stat_tests_result_dict, stat_csv_path)
         save_success_failure_violin_plots(
             best_model_path_only_df,
@@ -161,7 +159,7 @@ def run_log_analysis(config: AnalysisConfig) -> None:
             score_col="nor",
         )
         predictive_power_gpt4o_df.to_csv(
-            data_dir / f"rq3_predictive_power_table_{best_model.replace("/","__")}.csv",
+            data_dir / f"rq3_predictive_power_table_{config.analysis_model.replace("/","__")}.csv",
             index=False,
         )
 
