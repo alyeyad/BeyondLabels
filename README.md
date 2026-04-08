@@ -70,7 +70,7 @@ It loads prompt templates from `prompt_templates/`, reads source files from `dat
 
 - **Python 3.12 recommended**
 - A virtual environment
-- An API key for the provider you want to use
+- An API key for the LLM provider(s) you want to use
 
 The project already includes `requirements.txt`.
 
@@ -91,7 +91,7 @@ cd /path/to/BeyondLabels
 #### Linux/macOS
 
 ```bash
-python3.12 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
@@ -108,12 +108,12 @@ pip install -r requirements.txt
 
 ### 3. Create the `.env` file
 
-Copy the example file from `scripts/` into the project root.
+Copy the example file from `scripts/` into the same folder under the name `.env`
 
 #### Linux/macOS
 
 ```bash
-cp scripts/.env.example .env
+cp scripts/.env.example scripts/.env
 ```
 
 #### Windows PowerShell
@@ -131,8 +131,6 @@ DEEPSEEK_API_KEY=
 OPENROUTER_API_KEY=
 ```
 
-You only need the key for the provider you will actually use.
-
 ---
 
 ## Supported providers
@@ -149,38 +147,6 @@ Examples:
 - `--provider anthropic`
 - `--provider deepseek`
 - `--provider openrouter`
-
-If you pass another provider name, the code raises an unsupported-provider error.
-
----
-
-## Bundled project assets
-
-Unlike a minimal code-only release, the project you shared already includes:
-
-- `prompt_templates/llmql_prompt.txt`
-- `prompt_templates/baseline_prompt.txt`
-- `data/PathVul/...`
-- `data/negative_samples/...`
-
-So after creating the virtual environment and `.env`, you can run the project directly without separately adding datasets or prompt templates.
-
----
-
-## Default paths used by the code
-
-These defaults come from `src/utils/config.py`:
-
-```text
-prompt_templates/llmql_prompt.txt
-prompt_templates/baseline_prompt.txt
-data/PathVul
-data/negative_samples
-output/runs
-output/analysis
-```
-
-The run scripts do **not** currently expose dataset or prompt paths as CLI arguments, so the easiest setup is to keep the repository structure unchanged.
 
 ---
 
@@ -234,28 +200,15 @@ Example:
 data/negative_samples/
 └── Python/
     ├── file_1/
-    │   ├── sample.py
-    │   └── metadata.json
+    │   ├── file_1.py
+    │   └── file_1.json
     └── file_2/
-        └── other_sample.py
+        └── ...
 ```
 
 Each negative-sample folder should contain:
 - one source file (`.py` or `.java`)
 - optionally one `.json` metadata file
-
----
-
-## How prompts are built
-
-For each run, the code:
-
-1. loads the selected prompt template
-2. replaces `$_LANGUAGE` with the chosen language name
-3. concatenates the selected source files into a single input block
-4. prefixes lines with line numbers like `L1:`, `L2:`, `L3:`
-
-That means the prompt templates should contain the `$_LANGUAGE` placeholder where the language name is needed.
 
 ---
 
@@ -338,7 +291,7 @@ Other options:
 - `--model MODEL_NAME`
 - `--provider PROVIDER_NAME`
 - `--prompt-mode {llmql,baseline,all}`
-- `--actual-label INT` default: `1`
+- `--actual-label ` default: `1`
 
 Notes:
 - `--cve` and `--all-cves` are mutually exclusive.
@@ -420,115 +373,3 @@ output/analysis/
 Examples of generated outputs include CSV summaries and PDF plots.
 
 ---
-
-## Suggested first-run workflow
-
-### Smoke test 1: negative samples
-
-This is usually the simplest first test:
-
-```bash
-python scripts/run_llms_on_negative_samples.py \
-  --language Python \
-  --model gpt-4o \
-  --provider openai \
-  --prompt-mode llmql
-```
-
-Then check whether new JSON logs appear in:
-
-```text
-output/runs/
-```
-
-### Smoke test 2: analysis
-
-After at least one run completes, test the analysis pipeline:
-
-```bash
-python scripts/analyze_runs.py --analysis-model claude-sonnet-4-5
-```
-
-Then inspect:
-
-```text
-output/analysis/data/
-output/analysis/plots/
-```
-
----
-
-## Common issues and fixes
-
-### `ModuleNotFoundError: No module named 'src'`
-
-Run the script from the project root:
-
-```bash
-python scripts/run_llms_on_pathvul.py ...
-```
-
-The scripts already append the repository root to `sys.path`.
-
-### `FileNotFoundError` for prompts or datasets
-
-Make sure you did not move these folders:
-
-```text
-prompt_templates/
-data/
-```
-
-The project uses fixed default paths from `src/utils/config.py`.
-
-### Unsupported provider error
-
-Use one of:
-
-```text
-openai
-anthropic
-deepseek
-openrouter
-```
-
-### `No CVE found`
-
-Check that:
-- the CVE exists under `data/PathVul/Java/` or `data/PathVul/Python/`
-- the folder name starts with the CVE identifier
-
-### `No sample folders found`
-
-Check that negative samples are under:
-
-```text
-data/negative_samples/Java/
-data/negative_samples/Python/
-```
-
----
-
-## Minimal quick start
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp scripts/.env.example .env
-# edit .env and add your API key
-python scripts/run_llms_on_negative_samples.py \
-  --language Python \
-  --model gpt-4o \
-  --provider openai \
-  --prompt-mode llmql
-```
-
----
-
-## Notes
-
-- Keep the repository structure unchanged unless you also update `src/utils/config.py`.
-- Run commands from the repository root.
-- `output/` is generated automatically.
-- The bundled project already includes the datasets and prompt templates.
