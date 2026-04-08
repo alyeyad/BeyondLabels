@@ -150,18 +150,9 @@ Examples:
 
 ---
 
-## Expected dataset layout
+## Datasets Layout
 
 ### PathVul
-
-The code expects CVE folders under:
-
-```text
-data/PathVul/Java/
-data/PathVul/Python/
-```
-
-Example:
 
 ```text
 data/PathVul/
@@ -169,6 +160,8 @@ data/PathVul/
     └── CVE-2021-41110_cwlviewer/
         ├── annotations/
         │   └── input_filenames.json
+        │   └── vulnerable_paths.json
+        │   └── cve_metadata.json
         └── source/
             └── ...
 ```
