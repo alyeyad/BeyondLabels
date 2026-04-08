@@ -276,7 +276,6 @@ The negative pipeline reads the source file content and treats the sample as a n
 
 ---
 
-
 ## How to run the project
 
 ## Important
