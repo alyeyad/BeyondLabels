@@ -3,7 +3,10 @@ from pathlib import Path
 
 import csv
 import os
+from dotenv import load_dotenv
+
 import argparse
+
 from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
@@ -107,4 +110,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    load_dotenv()
     main()
