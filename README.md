@@ -6,9 +6,7 @@ It supports three main workflows:
 
 - **PathVul runs**: evaluate models on vulnerable multi-file CVE examples.
 - **Negative-sample runs**: evaluate models on non-vulnerable single-file samples.
-- **Log analysis**: aggregate saved logs into CSV summaries and plots.
-
-This README is based on the project files you shared, including the bundled `data/` and `prompt_templates/` directories.
+- **Log analysis**: analyze model run logs into CSV summaries and plots.
 
 ---
 
