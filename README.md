@@ -9,6 +9,42 @@ It supports three main workflows:
 - **Log analysis**: analyze model run logs into CSV summaries and plots.
 
 ---
+## Table of contents
+
+- [Repository structure](#repository-structure)
+- [What the project does](#what-the-project-does)
+  - [1. PathVul experiments](#1-pathvul-experiments)
+  - [2. Negative-sample experiments](#2-negative-sample-experiments)
+  - [3. Log analysis](#3-log-analysis)
+- [Requirements](#requirements)
+- [Setup](#setup)
+  - [1. Go to the project root](#1-go-to-the-project-root)
+  - [2. Create a virtual environment](#2-create-a-virtual-environment)
+    - [Linux/macOS](#linuxmacos)
+    - [Windows PowerShell](#windows-powershell)
+  - [3. Create the `.env` file](#3-create-the-env-file)
+- [Supported providers](#supported-providers)
+- [Datasets Layout](#datasets-layout)
+  - [PathVul](#pathvul)
+    - [`input_filenames.json`](#input_filenamesjson)
+    - [`cve_metadata.json`](#cve_metadatajson)
+    - [`vulnerable_paths.json`](#vulnerable_pathsjson)
+    - [`source/`](#source)
+  - [Negative samples](#negative-samples)
+- [How to run the project](#how-to-run-the-project)
+  - [1. Run one PathVul CVE](#1-run-one-pathvul-cve)
+  - [2. Run all PathVul CVEs](#2-run-all-pathvul-cves)
+  - [3. Run negative samples](#3-run-negative-samples)
+  - [4. Analyze saved logs](#4-analyze-saved-logs)
+- [CLI reference](#cli-reference)
+  - [`run_llms_on_pathvul.py`](#run_llms_on_pathvulpy)
+  - [`run_llms_on_negative_samples.py`](#run_llms_on_negative_samplespy)
+  - [`analyze_runs.py`](#analyze_runspy)
+- [Outputs](#outputs)
+  - [Run outputs](#run-outputs)
+  - [Analysis outputs](#analysis-outputs)
+
+---
 
 ## Repository structure
 
@@ -159,6 +195,8 @@ The PathVul dataset is organized by programming language, then by CVE instance. 
 - an `annotations/` directory with the structured metadata used by the project
 - a `source/` directory with the vulnerable project version files that are passed to the LLM
 
+The dataset can be visualized using our [visualization and manual analysis webpage](https://alyeyad.github.io/BeyondLabels/)
+
 Example:
 
 ```text
@@ -277,12 +315,6 @@ The negative pipeline reads the source file content and treats the sample as a n
 ---
 
 ## How to run the project
-
-## Important
-
-Run commands from the **project root**, not from inside `scripts/`.
-
-The scripts append the repository root to `sys.path`, so running from the root avoids import issues.
 
 ### 1. Run one PathVul CVE
 
