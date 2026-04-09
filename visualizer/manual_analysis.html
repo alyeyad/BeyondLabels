@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathVUL Manual Analysis</title>
+  <style>
+    :root {
+      --topbar-height: 78px;
+      --page-padding: 18px;
+      --banner-gap: 18px;
+      --panel-bg: #fff;
+      --panel-border: #e5e7eb;
+      --soft-text: #6b7280;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #fafafa;
+      color: #111827;
+      overflow: hidden;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(250,250,250,.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      min-height: var(--topbar-height);
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .sub {
+      margin-top: 4px;
+      color: var(--soft-text);
+      font-size: 13px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .button, select {
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      background: #fff;
+      color: #111827;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 12px;
+      text-decoration: none;
+    }
+
+    .button.primary {
+      background: #2ecc71;
+      border-color: #2ecc71;
+      color: #0a2410;
+    }
+
+    .wrap {
+      height: calc(100vh - var(--topbar-height));
+      padding: var(--page-padding);
+      overflow: hidden;
+    }
+
+    .page {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      gap: var(--banner-gap);
+    }
+
+    .banner {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      padding: 18px;
+      flex: 0 0 auto;
+    }
+
+    .banner h2 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+
+    .banner .desc {
+      margin-top: 10px;
+      color: var(--soft-text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .metrics {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .metric {
+      background: #111;
+      color: #fff;
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .help {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--soft-text);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+      min-height: 0;
+      flex: 1 1 auto;
+    }
+
+    .col {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      padding: 16px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .col-header {
+      flex: 0 0 auto;
+      margin-bottom: 12px;
+    }
+
+    .col h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .col-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--soft-text);
+    }
+
+    .path-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+      scroll-behavior: smooth;
+    }
+
+    .node {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 12px;
+      margin-bottom: 12px;
+      transition: .15s ease;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .node:last-child {
+      margin-bottom: 0;
+    }
+
+    .node.overlap {
+      border: 2px solid #f39c12;
+      background: linear-gradient(90deg, #fff4e5, #ffffff);
+    }
+
+    .node.overlap::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 6px;
+      background: #f39c12;
+      border-radius: 10px 0 0 10px;
+    }
+
+    .node.hovered {
+      outline: 3px solid #27ae60;
+      box-shadow: 0 0 0 3px rgba(39,174,96,.18);
+      background: #eafff2;
+      z-index: 1;
+    }
+
+    .node.locked {
+      outline: 3px solid #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.18);
+      background: #eff6ff;
+      z-index: 2;
+    }
+
+    .node-header {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .meta {
+      color: var(--soft-text);
+      font-size: 12px;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+
+    pre {
+      margin: 0;
+      background: #111;
+      color: #f3f4f6;
+      padding: 10px 12px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .empty {
+      min-height: calc(100vh - 110px);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--soft-text);
+      padding: 20px;
+    }
+
+    @media (max-width: 980px) {
+      body { overflow: auto; }
+      .wrap {
+        height: auto;
+        overflow: visible;
+      }
+      .page {
+        height: auto;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .col {
+        min-height: 420px;
+      }
+      .banner h2 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="title-wrap">
+      <h1>Manual analysis</h1>
+      <div class="sub">Side-by-side view of the reconstructed path and its matched ground-truth path.</div>
+    </div>
+    <div class="controls">
+      <a id="backLink" class="button" href="index.html">← Back to dataset viewer</a>
+      <select id="cveSelect"></select>
+    </div>
+  </div>
+
+  <div id="app" class="wrap"></div>
+
+  <script src="backend/data/manual_analysis_dataset.js"></script>
+  <script>
+    const MANUAL_DATA = window.MANUAL_ANALYSIS_DATA || {};
+    const app = document.getElementById('app');
+    const cveSelect = document.getElementById('cveSelect');
+    const backLink = document.getElementById('backLink');
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    function getParam(name) {
+      return new URLSearchParams(window.location.search).get(name);
+    }
+
+    function availableCves() {
+      return Object.keys(MANUAL_DATA).sort();
+    }
+
+    function currentCve() {
+      const requested = getParam('cve');
+      return (requested && MANUAL_DATA[requested]) ? requested : (availableCves()[0] || null);
+    }
+
+    function outputNodes(entry) {
+      if (Array.isArray(entry?.output_path)) return entry.output_path;
+      return [];
+    }
+
+    function realNodes(entry) {
+      if (Array.isArray(entry?.real_path)) return entry.real_path;
+      return [];
+    }
+
+    function renderSelect(activeCve) {
+      const ids = availableCves();
+      cveSelect.innerHTML = '';
+      if (!ids.length) {
+        cveSelect.innerHTML = '<option>No manual data</option>';
+        cveSelect.disabled = true;
+        return;
+      }
+      cveSelect.disabled = false;
+      ids.forEach(cve => {
+        const option = document.createElement('option');
+        option.value = cve;
+        option.textContent = cve;
+        option.selected = cve === activeCve;
+        cveSelect.appendChild(option);
+      });
+      cveSelect.onchange = () => {
+        const cve = cveSelect.value;
+        window.location.search = `?cve=${encodeURIComponent(cve)}`;
+      };
+    }
+
+    function scrollNodeIntoPanel(panel, node) {
+      if (!panel || !node) return;
+      const targetTop = node.offsetTop - (panel.clientHeight / 2) + (node.clientHeight / 2);
+      panel.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+    }
+
+    function bindHover(r2o, o2r) {
+      const realPanel = document.getElementById('realScroll');
+      const outputPanel = document.getElementById('outputScroll');
+      let locked = null;
+
+      function clearClasses() {
+        document.querySelectorAll('.hovered, .locked').forEach(x => {
+          x.classList.remove('hovered');
+          x.classList.remove('locked');
+        });
+      }
+
+      function activate(side, index, lock = false) {
+        clearClasses();
+
+        const isReal = side === 'real';
+        const sourceSelector = isReal ? `[data-real-index="${index}"]` : `[data-output-index="${index}"]`;
+        const source = document.querySelector(sourceSelector);
+        if (!source) return;
+
+        const sourceClass = lock ? 'locked' : 'hovered';
+        source.classList.add(sourceClass);
+
+        const related = isReal ? (r2o.get(index) || []) : (o2r.get(index) || []);
+        const targetSelector = isReal ? (i => `[data-output-index="${i}"]`) : (i => `[data-real-index="${i}"]`);
+        const targetPanel = isReal ? outputPanel : realPanel;
+
+        related.forEach((otherIndex, position) => {
+          const target = document.querySelector(targetSelector(otherIndex));
+          if (!target) return;
+          target.classList.add(sourceClass);
+          if (position === 0) {
+            scrollNodeIntoPanel(targetPanel, target);
+          }
+        });
+      }
+
+      function attachEvents(node, side, key) {
+        node.addEventListener('pointerenter', () => {
+          if (locked) return;
+          activate(side, key, false);
+        });
+
+        node.addEventListener('pointerleave', () => {
+          if (locked) return;
+          clearClasses();
+        });
+
+        node.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (locked && locked.side === side && locked.index === key) {
+            locked = null;
+            clearClasses();
+            return;
+          }
+          locked = { side, index: key };
+          activate(side, key, true);
+        });
+      }
+
+      document.querySelectorAll('[data-real-index]').forEach(node => {
+        attachEvents(node, 'real', +node.dataset.realIndex);
+      });
+
+      document.querySelectorAll('[data-output-index]').forEach(node => {
+        attachEvents(node, 'output', +node.dataset.outputIndex);
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!event.target.closest('.node')) {
+          locked = null;
+          clearClasses();
+        }
+      }, { passive: true });
+    }
+
+    function renderEntry(cve, entry) {
+      const overlaps = (entry?.nor_metrics?.overlapping_nodes || []);
+      const r2o = new Map();
+      const o2r = new Map();
+      overlaps.forEach(item => {
+        if (!r2o.has(item.realNodeIndex)) r2o.set(item.realNodeIndex, []);
+        if (!o2r.has(item.outputNodeIndex)) o2r.set(item.outputNodeIndex, []);
+        r2o.get(item.realNodeIndex).push(item.outputNodeIndex);
+        o2r.get(item.outputNodeIndex).push(item.realNodeIndex);
+      });
+
+      const real = realNodes(entry);
+      const output = outputNodes(entry);
+      const nor = Number.isFinite(entry?.nor_metrics?.nor) ? entry.nor_metrics.nor.toFixed(3) : '–';
+      const lcnr = Number.isFinite(entry?.lcnr_metrics?.lcnr) ? entry.lcnr_metrics.lcnr.toFixed(3) : '–';
+
+      app.innerHTML = `
+        <div class="page">
+          <section class="banner">
+            <h2>${escapeHtml(cve)}</h2>
+            <div class="desc">${escapeHtml(entry?.description || 'Hover or tap a matched node to highlight and scroll to its counterpart in the other panel.')}</div>
+            <div class="metrics">
+              <div class="metric">NOR: ${escapeHtml(nor)}</div>
+              <div class="metric">LCNR: ${escapeHtml(lcnr)}</div>
+              ${entry?.path_hash ? `<div class="metric">Path hash: ${escapeHtml(entry.path_hash)}</div>` : ''}
+            </div>
+            <div class="help">Hover with a mouse or tap on touch devices. Clicking locks the comparison until you click elsewhere.</div>
+          </section>
+          <section class="grid">
+            <div class="col">
+              <div class="col-header">
+                <h3>Ground Truth Path</h3>
+                <div class="col-sub">This panel scrolls independently.</div>
+              </div>
+              <div class="path-scroll" id="realScroll"><div id="realPath"></div></div>
+            </div>
+            <div class="col">
+              <div class="col-header">
+                <h3>LLM Reconstructed Path</h3>
+                <div class="col-sub">Matched nodes in the other panel auto-scroll into view.</div>
+              </div>
+              <div class="path-scroll" id="outputScroll"><div id="outputPath"></div></div>
+            </div>
+          </section>
+        </div>
+      `;
+
+      const realPathEl = document.getElementById('realPath');
+      const outputPathEl = document.getElementById('outputPath');
+
+      real.forEach((node, idx) => {
+        const fileInfo = node?.fileInfo || node?.file_name || '–';
+        const line = node?.lineInfo?.startLine ?? node?.line_number ?? '–';
+        const fn = node?.function?.name || '–';
+        const code = node?.sourceCode || node?.code_snippet || '';
+        const div = document.createElement('div');
+        div.className = 'node' + (r2o.has(idx) ? ' overlap' : '');
+        div.dataset.realIndex = idx;
+        div.innerHTML = `
+          <div class="node-header">Node ${idx}</div>
+          <div class="meta">${escapeHtml(fileInfo)}:${escapeHtml(line)}</div>
+          <div class="meta">Function: ${escapeHtml(fn)}</div>
+          <pre>${escapeHtml(code)}</pre>
+        `;
+        realPathEl.appendChild(div);
+      });
+
+      output.forEach((node, idx) => {
+        const file = node?.file || '–';
+        const lines = node?.lines || '–';
+        const fn = node?.function || '–';
+        const role = node?.role || '';
+        const snippet = node?.snippet || '';
+        const div = document.createElement('div');
+        div.className = 'node' + (o2r.has(idx) ? ' overlap' : '');
+        div.dataset.outputIndex = idx;
+        div.innerHTML = `
+          <div class="node-header">Node ${idx}${role ? ` <span style="opacity:.7">(${escapeHtml(role)})</span>` : ''}</div>
+          <div class="meta">${escapeHtml(file)}:${escapeHtml(lines)}</div>
+          <div class="meta">Function: ${escapeHtml(fn)}</div>
+          <pre>${escapeHtml(snippet)}</pre>
+        `;
+        outputPathEl.appendChild(div);
+      });
+
+      bindHover(r2o, o2r);
+    }
+
+    function renderEmpty(requested) {
+      app.innerHTML = `
+        <div class="empty">
+          <div>
+            <h2>No manual analysis available${requested ? ` for ${escapeHtml(requested)}` : ''}</h2>
+            <p>This page is wired and ready, but no manual-analysis dataset was found in <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">backend/data/manual_analysis_dataset.js</span>.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    const active = currentCve();
+    const requested = getParam('cve');
+    renderSelect(active);
+    backLink.href = active ? `index.html?cve=${encodeURIComponent(active)}` : 'index.html';
+
+    if (!active) {
+      renderEmpty(requested);
+    } else {
+      renderEntry(active, MANUAL_DATA[active]);
+    }
+  </script>
+</body>
+</html>

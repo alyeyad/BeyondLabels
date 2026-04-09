@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathVUL Dataset Viewer</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --panel: #111;
+      --panel-2: #1a1a1a;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --card: #ffffff;
+      --accent: #2ecc71;
+      --accent-soft: #eafff2;
+      --code-bg: #111;
+      --code-fg: #eee;
+      --shadow: 0 10px 25px rgba(0,0,0,.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: var(--panel);
+      color: #eee;
+      border-right: 1px solid #222;
+      overflow-y: auto;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .panel { padding: 16px; }
+    .panel + .panel { border-top: 1px solid #2b2b2b; }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #a3a3a3;
+    }
+
+    .title {
+      margin: 0 0 8px;
+      font-size: 22px;
+      line-height: 1.2;
+      color: #fff;
+    }
+
+    .subtle {
+      color: #b3b3b3;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .search {
+      width: 100%;
+      margin-top: 12px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #0b0b0b;
+      color: #f5f5f5;
+      outline: none;
+    }
+    .search:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(46,204,113,.15);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stat {
+      background: #0b0b0b;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .stat .label {
+      font-size: 11px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .stat .value {
+      margin-top: 4px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .cve-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .cve-card {
+      background: #171717;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .cve-card:hover { transform: translateY(-1px); }
+    .cve-card.active {
+      background: #13291d;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(46,204,113,.15);
+    }
+
+    .cve-top {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .cve-id {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .lang-badge {
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: #0b0b0b;
+      color: #d1d5db;
+      border: 1px solid #333;
+    }
+    .project-line {
+      font-size: 12px;
+      color: #d1d5db;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+    .project-line a { color: #9fe7ba; text-decoration: none; }
+    .project-line a:hover { text-decoration: underline; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip, .pill {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #0b0b0b;
+      border: 1px solid #333;
+      color: #e5e7eb;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .mini-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 8px;
+    }
+
+    .viewer {
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .empty-state {
+      min-height: calc(100vh - 40px);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .banner, .section, .node, .path-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .banner {
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .banner-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    h1, h2, h3 { margin: 0; }
+    h1 { font-size: 28px; line-height: 1.15; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 15px; }
+
+    .banner-links, .banner-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .link-btn, .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .action-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #082312;
+    }
+    .action-btn.ghost {
+      background: #fff;
+      color: var(--text);
+    }
+
+    .banner-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .desc {
+      color: #374151;
+      line-height: 1.6;
+      margin-top: 12px;
+      white-space: pre-wrap;
+    }
+
+    .section {
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .helper {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .path-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 14px;
+    }
+
+    .path-card {
+      padding: 14px;
+      transition: .15s ease;
+    }
+    .path-card:hover { transform: translateY(-1px); }
+
+    .path-hash {
+      font-size: 13px;
+      word-break: break-all;
+      color: #111827;
+      margin-bottom: 10px;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .path-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .file-chip {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 8px;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      margin: 4px 6px 0 0;
+      font-size: 12px;
+    }
+
+    .nodes {
+      display: grid;
+      gap: 12px;
+    }
+    .node {
+      padding: 14px;
+    }
+    .node-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .node-index {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--accent-soft);
+      color: #106c39;
+      border: 1px solid #bdeccc;
+    }
+    .node-file {
+      font-size: 13px;
+      font-weight: 700;
+      color: #111827;
+      word-break: break-all;
+    }
+    .node-meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    pre {
+      margin: 0;
+      background: var(--code-bg);
+      color: var(--code-fg);
+      border-radius: 12px;
+      padding: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #222;
+      }
+      .path-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="panel">
+        <div class="eyebrow">PathVUL</div>
+        <h1 class="title">Dataset Viewer</h1>
+        <div class="subtle">Browse CVEs, inspect metadata, open reference vulnerable paths, and jump to manual analysis.</div>
+        <input id="searchInput" class="search" type="text" placeholder="Search CVE, project, CWE, language..." />
+        <div class="stats">
+          <div class="stat"><div class="label">CVEs</div><div id="statCVEs" class="value">0</div></div>
+          <div class="stat"><div class="label">Paths</div><div id="statPaths" class="value">0</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">CVEs</div>
+        <div id="cveList" class="cve-list"></div>
+      </div>
+    </aside>
+
+    <main id="viewer" class="viewer"></main>
+  </div>
+
+  <script src="backend/data/pathvul_viewer_data.js"></script>
+  <script src="backend/data/manual_analysis_index.js"></script>
+  <script>
+    const DATA = window.PATHVUL_DATA || { summary: {}, cves: [] };
+    const MANUAL_INDEX = window.MANUAL_ANALYSIS_INDEX || {};
+
+    const viewerEl = document.getElementById('viewer');
+    const cveListEl = document.getElementById('cveList');
+    const searchInputEl = document.getElementById('searchInput');
+    document.getElementById('statCVEs').textContent = DATA.summary?.total_cves || 0;
+    document.getElementById('statPaths').textContent = DATA.summary?.total_paths || 0;
+
+    const STATE = {
+      query: '',
+      cveIndex: 0,
+      view: 'cve',
+      pathIndex: 0,
+    };
+
+    function safeArray(v) { return Array.isArray(v) ? v : []; }
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+    function shortHash(hash) {
+      return hash && hash.length > 18 ? `${hash.slice(0, 12)}…${hash.slice(-10)}` : (hash || '');
+    }
+    function deriveProjectLink(cve) {
+      return cve.project_url || '';
+    }
+    function hasManual(cve) {
+      return !!MANUAL_INDEX[cve.id];
+    }
+    function getFilteredCVEs() {
+      const q = STATE.query.trim().toLowerCase();
+      if (!q) return safeArray(DATA.cves);
+      return safeArray(DATA.cves).filter(cve => {
+        const haystack = [
+          cve.id,
+          cve.project,
+          cve.language,
+          ...(safeArray(cve.cwes)),
+          cve.description,
+          cve.publish_date,
+        ].join(' ').toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    function renderCVEList() {
+      const filtered = getFilteredCVEs();
+      if (!filtered.length) {
+        cveListEl.innerHTML = '<div class="subtle">No CVEs match your search.</div>';
+        renderEmpty('No CVEs match your search.');
+        return;
+      }
+
+      if (STATE.cveIndex >= filtered.length) STATE.cveIndex = 0;
+      const activeId = filtered[STATE.cveIndex]?.id;
+
+      cveListEl.innerHTML = filtered.map((cve, idx) => {
+        const projectUrl = deriveProjectLink(cve);
+        return `
+          <div class="cve-card ${cve.id === activeId ? 'active' : ''}" data-cve-index="${idx}">
+            <div class="cve-top">
+              <div class="cve-id">${escapeHtml(cve.id)}</div>
+              ${cve.language ? `<span class="lang-badge">${escapeHtml(cve.language)}</span>` : ''}
+            </div>
+            <div class="project-line">
+              ${projectUrl ? `<a href="${escapeHtml(projectUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(cve.project || 'Project')}</a>` : escapeHtml(cve.project || 'Unknown project')}
+            </div>
+            <div class="chips">
+              ${safeArray(cve.cwes).slice(0,4).map(cwe => `<span class="chip">${escapeHtml(cwe)}</span>`).join('')}
+            </div>
+            <div class="mini-meta">
+              <span>${escapeHtml(cve.path_count || 0)} paths</span>
+              ${cve.publish_date ? `<span>${escapeHtml(cve.publish_date)}</span>` : ''}
+              ${hasManual(cve) ? '<span>manual analysis available</span>' : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      cveListEl.querySelectorAll('.cve-card').forEach(card => {
+        card.addEventListener('click', () => {
+          STATE.cveIndex = Number(card.dataset.cveIndex || 0);
+          STATE.view = 'cve';
+          STATE.pathIndex = 0;
+          render();
+        });
+      });
+    }
+
+    function renderEmpty(message) {
+      viewerEl.innerHTML = `
+        <div class="empty-state">
+          <div>
+            <h2 style="margin:0 0 8px;">Nothing selected</h2>
+            <div>${escapeHtml(message)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCVEHome(cve) {
+      const projectUrl = deriveProjectLink(cve);
+      viewerEl.innerHTML = `
+        <div class="banner">
+          <div class="banner-top">
+            <div>
+              <div class="eyebrow" style="color:#6b7280;margin-bottom:6px;">CVE overview</div>
+              <h1>${escapeHtml(cve.id)}</h1>
+            </div>
+            <div class="chips">
+              ${safeArray(cve.cwes).map(cwe => `<span class="pill">${escapeHtml(cwe)}</span>`).join('')}
+              ${cve.language ? `<span class="pill">${escapeHtml(cve.language)}</span>` : ''}
+              ${cve.cvss ? `<span class="pill">CVSS ${escapeHtml(cve.cvss)}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="banner-links">
+            ${projectUrl ? `<a class="link-btn" href="${escapeHtml(projectUrl)}" target="_blank" rel="noopener noreferrer">Open project</a>` : ''}
+            ${cve.commit_url ? `<a class="link-btn" href="${escapeHtml(cve.commit_url)}" target="_blank" rel="noopener noreferrer">Open fix commit</a>` : ''}
+          </div>
+
+          <div class="banner-actions">
+            ${hasManual(cve) ? `<a class="action-btn primary" href="manual_analysis.html?cve=${encodeURIComponent(cve.id)}">Open manual analysis</a>` : ''}
+          </div>
+
+          <div class="banner-meta">
+            ${cve.project ? `<span class="pill">Project: ${escapeHtml(cve.project)}</span>` : ''}
+            ${cve.publish_date ? `<span class="pill">Published: ${escapeHtml(cve.publish_date)}</span>` : ''}
+            <span class="pill">${escapeHtml(cve.path_count || 0)} path hashes</span>
+          </div>
+
+          ${cve.description ? `<div class="desc">${escapeHtml(cve.description)}</div>` : ''}
+        </div>
+
+        <section class="section">
+          <div class="section-header">
+            <h2>Reference vulnerable paths</h2>
+            <div class="helper">Click a path hash to open its full node sequence</div>
+          </div>
+          <div class="path-list">
+            ${safeArray(cve.paths).map((path, idx) => `
+              <div class="path-card" data-path-index="${idx}">
+                <div class="path-hash mono">${escapeHtml(path.hash)}</div>
+                <div class="path-meta">
+                  <span class="pill">${escapeHtml(path.node_count || 0)} nodes</span>
+                  <span class="pill">${escapeHtml(safeArray(path.files).length)} files</span>
+                </div>
+                <div>
+                  ${safeArray(path.files).slice(0,5).map(file => `<span class="file-chip mono">${escapeHtml(file)}</span>`).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `;
+
+      viewerEl.querySelectorAll('[data-path-index]').forEach(card => {
+        card.addEventListener('click', () => {
+          STATE.pathIndex = Number(card.dataset.pathIndex || 0);
+          STATE.view = 'path';
+          render();
+        });
+      });
+    }
+
+    function renderPathView(cve, path) {
+      const files = safeArray(path.files);
+      viewerEl.innerHTML = `
+        <div class="banner">
+          <div class="banner-top">
+            <div>
+              <div class="eyebrow" style="color:#6b7280;margin-bottom:6px;">Reference vulnerable path</div>
+              <h1>${escapeHtml(cve.id)}</h1>
+            </div>
+            <div class="chips">
+              ${safeArray(cve.cwes).map(cwe => `<span class="pill">${escapeHtml(cwe)}</span>`).join('')}
+            </div>
+          </div>
+
+          <div class="banner-actions">
+            <button class="action-btn ghost" id="backToCVE">Back to CVE page</button>
+            ${hasManual(cve) ? `<a class="action-btn primary" href="manual_analysis.html?cve=${encodeURIComponent(cve.id)}">Open manual analysis</a>` : ''}
+          </div>
+
+          <div class="banner-meta">
+            <span class="pill">${escapeHtml(path.node_count || 0)} nodes</span>
+            <span class="pill">${escapeHtml(files.length)} files</span>
+          </div>
+        </div>
+
+        <section class="section">
+          <div class="section-header">
+            <h2>Selected path hash</h2>
+            <div class="helper">From vulnerable_paths.json</div>
+          </div>
+          <div class="path-hash mono">${escapeHtml(path.hash)}</div>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <h2>Files in this path</h2>
+            <div class="helper">Unique files traversed by this reference path</div>
+          </div>
+          <div>
+            ${files.map(file => `<span class="file-chip mono">${escapeHtml(file)}</span>`).join('')}
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <h2>Path nodes</h2>
+            <div class="helper">Ordered nodes for the selected path</div>
+          </div>
+          <div class="nodes">
+            ${safeArray(path.nodes).map((node, idx) => `
+              <div class="node">
+                <div class="node-header">
+                  <span class="node-index">${idx}</span>
+                  <div class="node-file mono">${escapeHtml(node.file_name || 'Unknown file')}</div>
+                </div>
+                <div class="node-meta">Line ${escapeHtml(node.line_number ?? '–')}</div>
+                <pre>${escapeHtml(node.code_snippet || '')}</pre>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `;
+
+      document.getElementById('backToCVE').addEventListener('click', () => {
+        STATE.view = 'cve';
+        render();
+      });
+    }
+
+    function render() {
+      renderCVEList();
+      const filtered = getFilteredCVEs();
+      if (!filtered.length) return;
+      const cve = filtered[STATE.cveIndex];
+      if (!cve) {
+        renderEmpty('Select a CVE from the left sidebar.');
+        return;
+      }
+      if (STATE.view === 'path') {
+        const path = safeArray(cve.paths)[STATE.pathIndex];
+        if (!path) {
+          STATE.view = 'cve';
+          renderCVEHome(cve);
+          return;
+        }
+        renderPathView(cve, path);
+      } else {
+        renderCVEHome(cve);
+      }
+    }
+
+    searchInputEl.addEventListener('input', e => {
+      STATE.query = e.target.value.trim();
+      STATE.cveIndex = 0;
+      STATE.pathIndex = 0;
+      STATE.view = 'cve';
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
