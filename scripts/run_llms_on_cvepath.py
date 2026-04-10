@@ -7,11 +7,11 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.utils.config import RunConfig
-from src.pathvul_pipeline import run_experiment
+from src.cvepath_pipeline import run_experiment
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the RQ1 PathVul experiment."
+        description="Run the RQ1 CVEPath experiment."
     )
 
     target_group = parser.add_mutually_exclusive_group(required=True)
@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--prompt-mode",
         type=str,
-        choices=["llmql", "baseline", "all"],
+        choices=["llmpath", "baseline", "all"],
         default="all",
         help="Which prompt set to run.",
     )

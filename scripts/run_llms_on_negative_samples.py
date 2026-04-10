@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--prompt-mode",
         type=str,
-        choices=["llmql", "baseline", "all"],
+        choices=["llmpath", "baseline", "all"],
         default="all",
         help="Which prompt set to run.",
     )

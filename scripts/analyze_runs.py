@@ -26,10 +26,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory containing JSON log files. Uses config default if omitted.",
     )
     parser.add_argument(
-        "--pathvul-dataset-dir",
+        "--cvepath-dataset-dir",
         type=Path,
         default=None,
-        help="PathVul dataset root. Uses config default if omitted.",
+        help="CVEPath dataset root. Uses config default if omitted.",
     )
     parser.add_argument(
         "--negative-dataset-dir",
@@ -86,10 +86,10 @@ def parse_args() -> AnalysisConfig:
     config = AnalysisConfig(
         logs_dir=args.logs_dir if args.logs_dir is not None else default_config.logs_dir,
         analysis_model=args.analysis_model if args.analysis_model is not None else default_config.analysis_model,
-        pathvul_dataset_dir=(
-            args.pathvul_dataset_dir
-            if args.pathvul_dataset_dir is not None
-            else default_config.pathvul_dataset_dir
+        cvepath_dataset_dir=(
+            args.cvepath_dataset_dir
+            if args.cvepath_dataset_dir is not None
+            else default_config.cvepath_dataset_dir
         ),
         negative_dataset_dir=(
             args.negative_dataset_dir

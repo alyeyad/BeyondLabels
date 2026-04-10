@@ -30,7 +30,7 @@ from .matching import (
 
 def process_output_files(
     logs_dir: Path,
-    pathvul_dataset_dir: Path,
+    cvepath_dataset_dir: Path,
     negative_dataset_dir: Path,
     recursive: bool = False,
 ) -> Tuple[
@@ -39,7 +39,7 @@ def process_output_files(
     List[str],
     Dict[str, Any],
 ]:
-    pathvul_repos = build_repo_index(pathvul_dataset_dir)
+    cvepath_repos = build_repo_index(cvepath_dataset_dir)
     negative_repos = build_negative_index(negative_dataset_dir)
     output_files = sorted(logs_dir.rglob("*.json") if recursive else logs_dir.glob("*.json"))
 
@@ -128,14 +128,14 @@ def process_output_files(
             excluded_files.append(filepath.name)
             continue
 
-        cve_folder = find_cve_folder(pathvul_repos, language, cve_id)
+        cve_folder = find_cve_folder(cvepath_repos, language, cve_id)
         if cve_folder is None:
             print(f"[process_output_files] Could not uniquely map {cve_id} ({language})")
             excluded_files.append(filepath.name)
             continue
 
         try:
-            real_paths, metadata = load_cve_data(pathvul_dataset_dir, language, cve_folder)
+            real_paths, metadata = load_cve_data(cvepath_dataset_dir, language, cve_folder)
         except Exception as exc:
             print(f"[process_output_files] Failed loading dataset entry for {cve_folder}: {exc}")
             excluded_files.append(filepath.name)
@@ -185,7 +185,7 @@ def process_output_files(
         }
 
     repo_info = {
-        "pathvul": pathvul_repos,
+        "cvepath": cvepath_repos,
         "negative": negative_repos,
     }
     return rq1_matches, negative_runs, excluded_files, repo_info

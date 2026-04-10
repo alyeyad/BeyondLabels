@@ -17,8 +17,8 @@ def get_prompts(config: RunConfig) -> dict[str, str]:
     """
     prompts: dict[str, str] = {}
 
-    if config.prompt_mode in {"llmql", "all"}:
-        prompts["llmql"] = load_prompt_file(config.llmql_prompt_path)
+    if config.prompt_mode in {"llmpath", "all"}:
+        prompts["llmpath"] = load_prompt_file(config.llmpath_prompt_path)
 
     if config.prompt_mode in {"baseline", "all"}:
         prompts["baseline"] = load_prompt_file(config.baseline_prompt_path)

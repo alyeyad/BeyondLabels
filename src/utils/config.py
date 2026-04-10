@@ -4,23 +4,23 @@ from typing import Literal
 
 
 LanguageOption = Literal["Java", "Python", "all"]
-PromptMode = Literal["llmql", "baseline", "all"]
+PromptMode = Literal["llmpath", "baseline", "all"]
 TaskName = Literal["rq1", "negative"]
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 PROMPT_TEMPLATES_DIR = PROJECT_ROOT / "prompt_templates"
-DEFAULT_LLMQL_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "llmql_prompt.txt"
+DEFAULT_LLMPATH_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "llmpath_prompt.txt"
 DEFAULT_BASELINE_PROMPT_PATH = PROMPT_TEMPLATES_DIR / "baseline_prompt.txt"
 
-DEFAULT_PATHVUL_DATASET_DIR = PROJECT_ROOT / "data" / "PathVul"
+DEFAULT_CVEPATH_DATASET_DIR = PROJECT_ROOT / "data" / "CVEPath"
 DEFAULT_NEGATIVE_DATASET_DIR = PROJECT_ROOT / "data" / "negative_samples"
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output"
-DEFAULT_LLMQL_RUNS_OUTPUT_DIR = DEFAULT_OUTPUT_DIR / "runs"
+DEFAULT_LLMPATH_RUNS_OUTPUT_DIR = DEFAULT_OUTPUT_DIR / "runs"
 
-DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_LLMQL_RUNS_OUTPUT_DIR
+DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_LLMPATH_RUNS_OUTPUT_DIR
 DEFAULT_ANALYSIS_OUT_DIR = DEFAULT_OUTPUT_DIR / "analysis"
 
 DEFAULT_THRESHOLDS = [0.25, 0.5, 0.75, 1.0]
@@ -43,16 +43,16 @@ class RunConfig:
 
     dataset_dir: Path | None = None
     out_dir: Path | None = None
-    llmql_prompt_path: Path = DEFAULT_LLMQL_PROMPT_PATH
+    llmpath_prompt_path: Path = DEFAULT_LLMPATH_PROMPT_PATH
     baseline_prompt_path: Path = DEFAULT_BASELINE_PROMPT_PATH
 
     def __post_init__(self) -> None:
-        self.llmql_prompt_path = Path(self.llmql_prompt_path)
+        self.llmpath_prompt_path = Path(self.llmpath_prompt_path)
         self.baseline_prompt_path = Path(self.baseline_prompt_path)
 
         if self.dataset_dir is None:
             self.dataset_dir = (
-                DEFAULT_PATHVUL_DATASET_DIR
+                DEFAULT_CVEPATH_DATASET_DIR
                 if self.task == "rq1"
                 else DEFAULT_NEGATIVE_DATASET_DIR
             )
@@ -60,7 +60,7 @@ class RunConfig:
             self.dataset_dir = Path(self.dataset_dir)
 
         if self.out_dir is None:
-            self.out_dir = DEFAULT_LLMQL_RUNS_OUTPUT_DIR
+            self.out_dir = DEFAULT_LLMPATH_RUNS_OUTPUT_DIR
         else:
             self.out_dir = Path(self.out_dir)
 
@@ -80,9 +80,9 @@ class RunConfig:
         if not self.dataset_dir.exists():
             raise FileNotFoundError(f"Dataset directory does not exist: {self.dataset_dir}")
 
-        if self.prompt_mode in {"llmql", "all"} and not self.llmql_prompt_path.exists():
+        if self.prompt_mode in {"llmpath", "all"} and not self.llmpath_prompt_path.exists():
             raise FileNotFoundError(
-                f"LLMQL prompt file does not exist: {self.llmql_prompt_path}"
+                f"LLMPath prompt file does not exist: {self.llmpath_prompt_path}"
             )
 
         if self.prompt_mode in {"baseline", "all"} and not self.baseline_prompt_path.exists():
@@ -100,7 +100,7 @@ class RunConfig:
 @dataclass(slots=True)
 class AnalysisConfig:
     logs_dir: Path = DEFAULT_ANALYSIS_LOGS_DIR
-    pathvul_dataset_dir: Path = DEFAULT_PATHVUL_DATASET_DIR
+    cvepath_dataset_dir: Path = DEFAULT_CVEPATH_DATASET_DIR
     negative_dataset_dir: Path = DEFAULT_NEGATIVE_DATASET_DIR
     output_dir: Path = DEFAULT_ANALYSIS_OUT_DIR
 
@@ -112,15 +112,15 @@ class AnalysisConfig:
 
     def __post_init__(self) -> None:
         self.logs_dir = Path(self.logs_dir)
-        self.pathvul_dataset_dir = Path(self.pathvul_dataset_dir)
+        self.cvepath_dataset_dir = Path(self.cvepath_dataset_dir)
         self.negative_dataset_dir = Path(self.negative_dataset_dir)
         self.output_dir = Path(self.output_dir)
 
     def validate_paths(self) -> None:
         if not self.logs_dir.exists():
             raise FileNotFoundError(f"Logs directory does not exist: {self.logs_dir}")
-        if not self.pathvul_dataset_dir.exists():
-            raise FileNotFoundError(f"PathVul dataset directory does not exist: {self.pathvul_dataset_dir}")
+        if not self.cvepath_dataset_dir.exists():
+            raise FileNotFoundError(f"CVEPath dataset directory does not exist: {self.cvepath_dataset_dir}")
         if not self.negative_dataset_dir.exists():
             raise FileNotFoundError(f"Negative dataset directory does not exist: {self.negative_dataset_dir}")
 

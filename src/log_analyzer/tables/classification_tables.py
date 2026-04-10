@@ -49,8 +49,8 @@ def _compute_mcc(tp: int, tn: int, fp: int, fn: int) -> float:
 
 def _normalize_prompt_type(value: str) -> str:
     raw = str(value).strip().lower()
-    if raw == "llmql":
-        return "LLMQL"
+    if raw == "llmpath":
+        return "LLMPath"
     if raw == "baseline":
         return "Baseline"
     return str(value).strip()
@@ -86,7 +86,7 @@ def create_prompt_type_label_comparison_table(
     combined_df: pd.DataFrame,
     negative_df: pd.DataFrame,
     selected_models: Sequence[str],
-    prompt_order: Sequence[str] = ("LLMQL", "Baseline"),
+    prompt_order: Sequence[str] = ("LLMPath", "Baseline"),
 ) -> pd.DataFrame:
     if combined_df.empty and negative_df.empty:
         return pd.DataFrame(

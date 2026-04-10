@@ -102,7 +102,7 @@ def create_model_summary_table(combined_df: pd.DataFrame) -> pd.DataFrame:
         )
 
     df = combined_df.copy()
-    df = df[df["promptType"] == "llmql"]
+    df = df[df["promptType"] == "llmpath"]
 
     for col in ["nor", "lcnr", "sourceHit", "sinkHit", "numOverlapNodes"]:
         if col not in df.columns:
@@ -195,7 +195,7 @@ def create_single_model_cwe_table(
         return pd.DataFrame(columns=columns)
 
     df = combined_df.copy()
-    df = df[df["promptType"] == "llmql"]
+    df = df[df["promptType"] == "llmpath"]
 
     required_cols = ["model", "cwes", "nor", "lcnr", "sourceHit", "sinkHit", "numOverlapNodes"]
     for col in required_cols:

@@ -99,7 +99,7 @@ def run_log_analysis(config: AnalysisConfig) -> None:
     print("[1/6] Processing logs...")
     rq1_matches, negative_runs, excluded_files, _ = process_output_files(
         logs_dir=config.logs_dir,
-        pathvul_dataset_dir=config.pathvul_dataset_dir,
+        cvepath_dataset_dir=config.cvepath_dataset_dir,
         negative_dataset_dir=config.negative_dataset_dir,
         recursive=config.recursive,
     )
@@ -121,12 +121,12 @@ def run_log_analysis(config: AnalysisConfig) -> None:
             lcs_refined_matches,
         )
         if not combined_df.empty:
-            combined_df.to_csv(data_dir / "pathvul_results.csv", index=False)
+            combined_df.to_csv(data_dir / "cvepath_results.csv", index=False)
         model_summary_df = create_model_summary_table(combined_df)
         model_summary_df.to_csv(data_dir / "rq1_model_summary.csv", index=False)
 
-        best_model_path_only_df = combined_df[(combined_df["model"] == config.analysis_model)&(combined_df["promptType"] == "llmql")].copy()
-        best_model_path_only_df.to_csv(data_dir / f"pathvul_best_model_{config.analysis_model}_llmql.csv", index=False)
+        best_model_path_only_df = combined_df[(combined_df["model"] == config.analysis_model)&(combined_df["promptType"] == "llmpath")].copy()
+        best_model_path_only_df.to_csv(data_dir / f"cvepath_best_model_{config.analysis_model}_llmpath.csv", index=False)
 
         plot_nor_scatter(
             best_model_path_only_df,
@@ -177,7 +177,7 @@ def run_log_analysis(config: AnalysisConfig) -> None:
             combined_df=combined_df,
             negative_df=negative_df,
             selected_models=selected_models,
-            prompt_order=("LLMQL", "Baseline"),
+            prompt_order=("LLMPath", "Baseline"),
         )
 
         prompt_comparison_df.to_csv(

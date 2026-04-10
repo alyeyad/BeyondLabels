@@ -34,7 +34,7 @@ def plot_nor_scatter(
     figsize: tuple[int, int] = (20, 5),
     show: bool = False,
 ):
-    df = df[(df["promptType"] == "llmql") & (df["model"] == model)].copy()
+    df = df[(df["promptType"] == "llmpath") & (df["model"] == model)].copy()
     df[overlap_col] = df[overlap_col].replace({-1: 0})
 
     df["overlap_bin"] = pd.cut(
