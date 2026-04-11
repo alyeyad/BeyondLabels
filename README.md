@@ -1,6 +1,6 @@
-# FromLabelsToPaths
+# BeyondLabels
 
-This repository contains the datasets and replication package for the paper: ***From Labels to Paths: Evaluating LLMs on Vulnerable-Path Reconstruction***
+This repository contains the datasets and replication package for the paper: ***Beyond Labels: Evaluating LLMs on Vulnerable-Path Reconstruction***
 
 It supports three main workflows:
 
@@ -195,7 +195,7 @@ The CVEPath dataset is organized by programming language, then by CVE instance. 
 - an `annotations/` directory with the structured metadata used by the project
 - a `source/` directory with the vulnerable project version files that are passed to the LLM
 
-The dataset can be visualized using our [visualization and manual analysis webpage](https://alyeyad.github.io/FromLabelsToPaths/)
+The dataset can be visualized using our [visualization and manual analysis webpage](https://alyeyad.github.io/BeyondLabels/)
 
 Example:
 
