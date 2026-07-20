@@ -1,0 +1,267 @@
+### SYSTEM CONTEXT ###
+You are a senior Application Security reviewer. You receive a single CVE fix commit that changes multiple files.
+
+### ASSUMPTION (do not override) ###
+All provided files are already relevant to the CWE category of this CVE. Your job is NOT to decide CWE relevance.
+
+### TASK ###
+Classify each changed file into exactly one of:
+- "vulnerability-path-fixing": The change lies on the real attacker-controlled input → vulnerable sink path, or directly neutralizes it (e.g., validator/escape/permission/ordering/ownership fix). Removing this change would re-enable the exploit.
+- "parallel-hardening": Extra safety/robustness or consistency in nearby code, but NOT required to block the exploit. Removing it would not restore the exploit (though it may reduce defense-in-depth or reliability).
+- "irrelevant": Docs/tests/CI/formatting/build or cosmetic refactors with no security effect on exploitability.
+- Source→sink path: The concrete path by which attacker-controlled state reaches the vulnerable operation.
+
+### KNOWLEDGE & CONTEXT USAGE ###
+- You are allowed and expected to recall and use external CVE knowledge you have about this CVE (based on its ID, CWE, description, and commit URL).
+- Use the CVE description to anchor your reasoning: identify the type of flaw.
+- Use the commit URL and commit message as context for the intent of the fix.
+- Always cross-check: a file is only "vulnerability-path-fixing" if its changes directly mitigate the described exploit path. 
+- Parallel hardening files may still be security-related, but they do not remove the exploitation vector described in the CVE.
+
+### CONSTRAINTS ###
+- Assume all files are CWE-relevant; do not discard on that basis.
+- Prefer concise, diff-grounded reasons.
+
+### INPUT FORMAT ###
+{  "cve_id": "...",
+   "cwe_id": ["..."],
+   "cve_language": "...",
+   "cve_description": "...",
+   "commit_id": "...",
+   "commit_message": "...",
+   "project": "...",
+   "commit_url": "...",
+   "changed_files": [
+     { "file_path": "...",
+       "file_name": "...",
+       "patch": "@@ ... (unified diff here) ..." }
+     // Additional files, same shape
+   ]
+}
+
+### OUTPUT FORMAT ###
+# JSON only; one object for each input file.
+[
+  {
+    "file_path": "<file_path>",
+    "file_name": "<file_name>",
+    "decision": "vulnerability-path-fixing" | "parallel-hardening" | "irrelevant",
+    "why": "<=2 sentences tied to the provided evidence>",
+    "roles": ["source","validation","sanitization","sink","lifecycle/ownership","locking/ordering","policy/perm","refactor","docs","tests","build/ci"],
+    "confidence": 0.0-1.0
+  },
+  ...
+]
+
+### FEW-SHOT EXAMPLE ###
+#### INPUT ####
+{'cve_id': 'CVE-2021-32634', 'cwe_id': ['CWE-502'], 'cve_language': 'Java', 'cve_description': 'Emissary is a distributed, peer-to-peer, data-driven workflow framework. Emissary 6.4.0 is vulnerable to Unsafe Deserialization of post-authenticated requests to the [`WorkSpaceClientEnqueue.action`](https://github.com/NationalSecurityAgency/emissary/blob/30c54ef16c6eb6ed09604a929939fb9f66868382/src/main/java/emissary/server/mvc/internal/WorkSpaceClientEnqueueAction.java) REST endpoint. This issue may lead to post-auth Remote Code Execution. This issue has been patched in version 6.5.0. As a workaround, one can disable network access to Emissary from untrusted sources.', 'commit_id': '40260b1ec1f76cc92361702cc14fa1e4388e19d7', 'commit_message': 'Merge pull request from GHSA-m5qf-gfmp-7638
+
+* Remove unsafe serialization from PayloadUtil
+
+* This code will likely be removed wholesale, but this change
+  should be used as a departure point for future development
+  if we end up re-implementing moveTo and friends.
+
+* Removed vestigial MoveTo related code.
+
+* Remove unsafe serialization in WorkSpace infra.
+
+* Favor DataInput/DataOutputStream over ObjectInput/ObjectOutputStream
+* Implement lightweight serialization in WorkBundle/WorkUnit
+
+* Updates to WorkBundle serDe, added tests.
+
+- set limit on number of WorkUnits per bundle. In practice these are
+  commonly less than 1024.
+- added null handling for WorkBundle/WorkUnit string fields.
+- confirmed readUTF/writeUTF has a limit ensuring strings will
+  be 65535 characters or less.
+
+* Minor cleanup to WorkBundleTest
+
+* Minor Change to WorkBundleTest
+
+* Formatting updates', 'project': 'nationalsecurityagency/emissary', 'commit_url': 'https://github.com/nationalsecurityagency/emissary/commit/40260b1ec1f76cc92361702cc14fa1e4388e19d7', 'changed_files': [{'file_path': 'files/2021_5/330', 'file_name': 'src/main/java/emissary/server/mvc/internal/WorkSpaceClientEnqueueAction.java', 'patch': '@@ -1,7 +1,7 @@
+ package emissary.server.mvc.internal;
+ 
+ import java.io.ByteArrayInputStream;
+-import java.io.ObjectInputStream;
++import java.io.DataInputStream;
+ 
+ import javax.ws.rs.Consumes;
+ import javax.ws.rs.FormParam;
+@@ -49,8 +49,8 @@ public Response workspaceClientEnqueue(@FormParam(WorkSpaceAdapter.CLIENT_NAME)
+                 throw new IllegalArgumentException("No client place found using name " + clientName);
+             }
+ 
+-            final ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(workBundleString.getBytes("8859_1")));
+-            WorkBundle paths = (WorkBundle) ois.readObject();
++            final DataInputStream ois = new DataInputStream(new ByteArrayInputStream(workBundleString.getBytes("8859_1")));
++            WorkBundle paths = WorkBundle.readFromStream(ois);
+             success = place.enque(paths);
+         } catch (Exception e) {
+             logger.warn("WorkSpaceClientEnqueWorker exception", e);'}, {'file_path': 'files/2021_5/331', 'file_name': 'src/main/java/emissary/util/PayloadUtil.java', 'patch': '@@ -1,13 +1,5 @@
+ package emissary.util;
+ 
+-import java.io.ByteArrayInputStream;
+-import java.io.ByteArrayOutputStream;
+-import java.io.IOException;
+-import java.io.ObjectInputStream;
+-import java.io.ObjectOutputStream;
+-import java.io.OutputStream;
+-import java.io.UnsupportedEncodingException;
+-import java.nio.ByteBuffer;
+ import java.util.Collection;
+ import java.util.Date;
+ import java.util.Iterator;
+@@ -109,73 +101,6 @@ public static String getPayloadOneLineString(final IBaseDataObject payload) {
+         return sb.toString();
+     }
+ 
+-    public static ByteBuffer serializeToByteBuffer(final Object payload) throws IOException {
+-        return ByteBuffer.wrap(serializeToBytes(payload));
+-    }
+-
+-    /**
+-     * Serialize a payload object to bytes
+-     */
+-    public static byte[] serializeToBytes(final Object payload) throws IOException {
+-        final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+-        serializeToStream(bos, payload);
+-        return bos.toByteArray();
+-    }
+-
+-    /**
+-     * Serialize a payload object to string
+-     */
+-    public static String serializeToString(final Object payload) throws IOException {
+-        final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+-        serializeToStream(bos, payload);
+-        String agentData = null;
+-        try {
+-            agentData = bos.toString("8859_1");
+-        } catch (UnsupportedEncodingException e) {
+-            logger.warn("Should always support 8859_1", e);
+-            agentData = bos.toString();
+-        }
+-        return agentData;
+-    }
+-
+-    /**
+-     * Serialize a payload object onto the specified stream
+-     */
+-    public static void serializeToStream(final OutputStream os, final Object payload) throws IOException {
+-        ObjectOutputStream oos = null;
+-        try {
+-            oos = new ObjectOutputStream(os);
+-            oos.writeObject(payload);
+-        } finally {
+-            if (oos != null) {
+-                try {
+-                    oos.close();
+-                } catch (IOException ignore) {
+-                    // empty catch block
+-                }
+-            }
+-        }
+-    }
+-
+-    public static Object deserialize(final String s) {
+-        ObjectInputStream ois = null;
+-        try {
+-            ois = new ObjectInputStream(new ByteArrayInputStream(s.getBytes("8859_1")));
+-            return ois.readObject();
+-        } catch (Exception e) {
+-            logger.error("Cannot deserialize payload using " + (s == null ? -1 : s.length()) + " bytes", e);
+-            throw new IllegalArgumentException("Cannot deserialize payload");
+-        } finally {
+-            if (ois != null) {
+-                try {
+-                    ois.close();
+-                } catch (IOException ignore) {
+-                    // empty catch block
+-                }
+-            }
+-        }
+-    }
+-
+     /**
+      * Turn the payload into an xml jdom document
+      * 
+@@ -203,7 +128,7 @@ public static Document toXml(final IBaseDataObject d) {
+         final Element meta = new Element("metadata");
+         for (final String key : d.getParameters().keySet()) {
+             final Element m = JDOMUtil.protectedElement("param", d.getStringParameter(key));
+-            m.setAttribute("name", key.toString());
++            m.setAttribute("name", key);
+             meta.addContent(m);
+         }
+         root.addContent(meta);
+@@ -230,8 +155,7 @@ public static Document toXml(final IBaseDataObject d) {
+         }
+ 
+         logger.debug("Produced xml document for " + d.shortName());
+-        final Document doc = new Document(root);
+-        return doc;
++        return new Document(root);
+     }
+ 
+     /**
+@@ -255,8 +179,7 @@ public static Document toXml(final List<IBaseDataObject> list) {
+             root.addContent(doc.detachRootElement());
+             logger.debug("Adding xml content for " + d.shortName() + " to document");
+         }
+-        final Document doc = new Document(root);
+-        return doc;
++        return new Document(root);
+     }
+ 
+     /**
+@@ -277,7 +200,7 @@ public static String printFormattedMetadata(final IBaseDataObject payload) {
+         final StringBuilder out = new StringBuilder();
+         out.append(LS);
+         for (final Map.Entry<String, Collection<Object>> entry : payload.getParameters().entrySet()) {
+-            out.append(entry.getKey() + SEP + entry.getValue() + LS);
++            out.append(entry.getKey()).append(SEP).append(entry.getValue()).append(LS);
+         }
+         return out.toString();
+     }'}, {'file_path': 'files/2021_5/333', 'file_name': 'src/test/java/emissary/util/PayloadUtilTest.java', 'patch': '@@ -121,14 +121,6 @@ public void testNameOfBadArgument() {
+         assertEquals("Name of unexpected argument is class name", s.getClass().getName(), PayloadUtil.getName(s));
+     }
+ 
+-    @Test
+-    public void testByteSerialization() throws Exception {
+-        final IBaseDataObject d = DataObjectFactory.getInstance("abc".getBytes(), "testfile", Form.UNKNOWN);
+-        final byte[] bytes = PayloadUtil.serializeToBytes(d);
+-        final String s1 = new String(bytes);
+-        assertTrue("Serializedion must include data from payload", s1.indexOf("abc") > -1);
+-    }
+-
+     @Test
+     public void testXmlSerizliaztion() throws Exception {
+         final IBaseDataObject d = DataObjectFactory.getInstance("abc".getBytes(), "testfile", Form.UNKNOWN);'}]}
+#### OUTPUT ####
+[
+{
+"file_path": "src/main/java/emissary/server/mvc/internal/WorkSpaceClientEnqueueAction.java",
+"decision": "vulnerability-path-fixing",
+"why": "Replaces ObjectInputStream-based deserialization of request data with a safe, lightweight reader (DataInputStream + WorkBundle.readFromStream), directly removing the unsafe deserialization sink on the affected REST endpoint.",
+"roles": ["sink", "validation"],
+"confidence": 0.96
+},
+{
+"file_path": "src/main/java/emissary/util/PayloadUtil.java",
+"decision": "parallel-hardening",
+"why": "Removes general-purpose ObjectInput/ObjectOutputStream helpers (serialize/deserialize APIs), reducing future exposure but not required to stop exploitation at the WorkSpaceClientEnqueue endpoint.",
+"roles": ["refactor"],
+"confidence": 0.82
+},
+{
+"file_path": "src/test/java/emissary/util/PayloadUtilTest.java",
+"decision": "irrelevant",
+"why": "Test cleanup reflecting removal of unsafe serialization helpers; does not affect exploitability.",
+"roles": ["tests"],
+"confidence": 1.0
+}
+]
