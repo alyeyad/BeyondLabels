@@ -4,7 +4,7 @@ This repository contains the datasets and replication package for the paper: ***
 
 It supports three main workflows:
 
-- **CVEPath runs**: evaluate models on vulnerable multi-file CVE examples.
+- **CVEPath runs**: evaluate models on vulnerable multi-file CVE examples (the 105-CVE study set, or the held-out 14-CVE post-cutoff set).
 - **Negative-sample runs**: evaluate models on non-vulnerable single-file samples.
 - **Log analysis**: analyze model run logs into CSV summaries and plots.
 
@@ -30,12 +30,14 @@ It supports three main workflows:
     - [`cve_metadata.json`](#cve_metadatajson)
     - [`vulnerable_paths.json`](#vulnerable_pathsjson)
     - [`source/`](#source)
+  - [Post-cutoff CVEs](#post-cutoff-cves)
   - [Negative samples](#negative-samples)
 - [How to run the project](#how-to-run-the-project)
   - [1. Run one CVEPath CVE](#1-run-one-cvepath-cve)
   - [2. Run all CVEPath CVEs](#2-run-all-cvepath-cves)
-  - [3. Run negative samples](#3-run-negative-samples)
-  - [4. Analyze saved logs](#4-analyze-saved-logs)
+  - [3. Run the post-cutoff set](#3-run-the-post-cutoff-set)
+  - [4. Run negative samples](#4-run-negative-samples)
+  - [5. Analyze saved logs](#5-analyze-saved-logs)
 - [CLI reference](#cli-reference)
   - [`run_llms_on_cvepath.py`](#run_llms_on_cvepathpy)
   - [`run_llms_on_negative_samples.py`](#run_llms_on_negative_samplespy)
@@ -53,6 +55,8 @@ It supports three main workflows:
 ├── data/
 │   ├── CVEPath/
 │   │   ├── Java/
+│   │   └── Python/
+│   ├── post-cutoff-cves/
 │   │   └── Python/
 │   └── negative_samples/
 │       ├── Java/
@@ -92,7 +96,7 @@ This folder is created automatically when needed.
 - one selected CVE, or
 - all CVEs in the CVEPath dataset
 
-It loads prompt templates from `prompt_templates/`, reads source files from `data/CVEPath/`, queries the selected provider, and saves one JSON log per run under `output/runs/`.
+It loads prompt templates from `prompt_templates/`, reads source files from `data/CVEPath/` (or `data/post-cutoff-cves/` if you pass `--dataset-dir`), queries the selected provider, and saves one JSON log per run under `output/runs/`.
 
 ### 2. Negative-sample experiments
 `python scripts/run_llms_on_negative_samples.py` runs the same prompting flow on non-vulnerable single-file examples stored in `data/negative_samples/`.
@@ -288,6 +292,45 @@ then the file is expected at:
 data/CVEPath/Java/CVE-2021-41110_cwlviewer/source/src/main/java/com/jamesmurty/utils/XMLBuilder.java
 ```
 
+### Post-cutoff CVEs
+
+`data/post-cutoff-cves/` is a held-out reconstruction set in the **same folder layout** as CVEPath. It is not mixed into `data/CVEPath/`.
+
+It contains **14 Python CVEs**. Each has an NVD publish date and a fix-commit date strictly after the GPT-5.2 knowledge cutoff (31 August 2025), so the same 14 cases also post-date the other evaluated models. There is no Java split.
+
+The annotation files (`input_filenames.json`, `cve_metadata.json`, `vulnerable_paths.json`) and `source/` tree follow the CVEPath schema above. Metadata is a slim subset (CVE id, CWE, description, language, project, commit, dates, parents). Each `input_filenames.json` has one file combination: every source file that appears on any reference path.
+
+```text
+data/post-cutoff-cves/
+└── Python/
+    └── CVE-2025-10155_picklescan/
+        ├── annotations/
+        │   ├── input_filenames.json
+        │   ├── vulnerable_paths.json
+        │   └── cve_metadata.json
+        └── source/
+            └── ...
+```
+
+The 14 instances are:
+
+- `CVE-2025-10155_picklescan`
+- `CVE-2025-12060_keras`
+- `CVE-2025-61622_fory`
+- `CVE-2025-61677_datachain`
+- `CVE-2025-61765_python-socketio`
+- `CVE-2025-67502_taguette`
+- `CVE-2025-67729_lmdeploy`
+- `CVE-2026-11529_mysql_mcp_server`
+- `CVE-2026-11816_keras`
+- `CVE-2026-25632_EPyT-Flow`
+- `CVE-2026-27645_changedetection.io`
+- `CVE-2026-27953_ormar`
+- `CVE-2026-54499_stanza`
+- `CVE-2026-8838_amazon-redshift-python-driver`
+
+Point the CVEPath runner at this tree with `--dataset-dir data/post-cutoff-cves` and `--language Python`. Use a separate `--out-dir` so post-cutoff logs are not mixed with the 105-CVE runs.
+
 ### Negative samples
 
 The negative-sample dataset is organized by language, with one folder per sample.
@@ -338,7 +381,49 @@ python scripts/run_llms_on_cvepath.py \
   --prompt-mode all
 ```
 
-### 3. Run negative samples
+### 3. Run the post-cutoff set
+
+Same runner as CVEPath. Pass `--dataset-dir data/post-cutoff-cves` and `--language Python` (all 14 cases are Python).
+
+One CVE:
+
+```bash
+python scripts/run_llms_on_cvepath.py \
+  --cve CVE-2025-10155 \
+  --language Python \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode llmpath \
+  --dataset-dir data/post-cutoff-cves \
+  --out-dir output/runs_post_cutoff
+```
+
+All 14 CVEs:
+
+```bash
+python scripts/run_llms_on_cvepath.py \
+  --all-cves \
+  --language Python \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode llmpath \
+  --dataset-dir data/post-cutoff-cves \
+  --out-dir output/runs_post_cutoff
+```
+
+Score those logs against the post-cutoff annotations (not `data/CVEPath`):
+
+```bash
+python scripts/analyze_runs.py \
+  --logs-dir output/runs_post_cutoff \
+  --cvepath-dataset-dir data/post-cutoff-cves \
+  --negative-dataset-dir data/negative_samples \
+  --output-dir output/analysis_post_cutoff \
+  --analysis-model claude-sonnet-4-5 \
+  --recursive
+```
+
+### 4. Run negative samples
 
 ```bash
 python scripts/run_llms_on_negative_samples.py \
@@ -348,7 +433,7 @@ python scripts/run_llms_on_negative_samples.py \
   --prompt-mode all
 ```
 
-### 4. Analyze saved logs
+### 5. Analyze saved logs
 
 Minimal example:
 
@@ -388,10 +473,13 @@ Other options:
 - `--provider PROVIDER_NAME`
 - `--prompt-mode {llmpath,baseline,all}`
 - `--actual-label ` default: `1`
+- `--dataset-dir PATH` default: `data/CVEPath`
+- `--out-dir PATH` default: `output/runs`
 
 Notes:
 - `--cve` and `--all-cves` are mutually exclusive.
 - CVEPath runs default to a positive ground-truth label.
+- For the held-out set use `--dataset-dir data/post-cutoff-cves` and `--language Python`.
 
 ### `run_llms_on_negative_samples.py`
 
