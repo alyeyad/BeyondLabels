@@ -55,6 +55,7 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
 - [Outputs](#outputs)
   - [Run outputs](#run-outputs)
   - [Analysis outputs](#analysis-outputs)
+  - [Supplementary appendix](#supplementary-appendix)
 
 ---
 
@@ -74,6 +75,8 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
 │   └── negative_samples/
 │       ├── Java/
 │       └── Python/
+├── docs/
+│   └── appendix.pdf
 ├── prompt_templates/
 │   ├── baseline_prompt.txt
 │   └── cvepath_prompt.txt
@@ -764,5 +767,13 @@ output/analysis/
 ```
 
 Examples of generated outputs include CSV summaries and PDF plots. `data/cvepath_results.csv` keeps every run; `data/rq1_model_summary.csv` aggregates with median-of-runs per CVE.
+
+### Supplementary appendix
+
+**`docs/appendix.pdf`** is the replication-package appendix cited from the paper. It contains:
+
+1. Identifier-masking contamination check
+2. Post-cutoff held-out reconstruction check (14 Python CVEs after the GPT-5.2 cutoff)
+3. Claude fail-case analysis of the 10 NOR = 0 cases in original Figure 4
 
 ---
