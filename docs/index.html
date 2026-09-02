@@ -155,6 +155,11 @@
       color: #d1d5db;
       border: 1px solid #333;
     }
+    .set-badge {
+      background: #13291d;
+      color: #9fe7ba;
+      border-color: var(--accent);
+    }
     .project-line {
       font-size: 12px;
       color: #d1d5db;
@@ -390,8 +395,8 @@
       <div class="panel">
         <div class="eyebrow">CVEPath</div>
         <h1 class="title">Dataset Viewer</h1>
-        <div class="subtle">Browse CVEs, inspect metadata, open reference vulnerable paths, and jump to manual analysis.</div>
-        <input id="searchInput" class="search" type="text" placeholder="Search CVE, project, CWE, language..." />
+        <div class="subtle">Browse the 105-CVE study set and the 14 post-cutoff CVEs. Inspect metadata, open reference vulnerable paths, and jump to manual analysis.</div>
+        <input id="searchInput" class="search" type="text" placeholder="Search CVE, project, CWE, language, post-cutoff..." />
         <div class="stats">
           <div class="stat"><div class="label">CVEs</div><div id="statCVEs" class="value">0</div></div>
           <div class="stat"><div class="label">Paths</div><div id="statPaths" class="value">0</div></div>
@@ -451,6 +456,7 @@
           cve.id,
           cve.project,
           cve.language,
+          cve.collection,
           ...(safeArray(cve.cwes)),
           cve.description,
           cve.publish_date,
@@ -476,7 +482,10 @@
           <div class="cve-card ${cve.id === activeId ? 'active' : ''}" data-cve-index="${idx}">
             <div class="cve-top">
               <div class="cve-id">${escapeHtml(cve.id)}</div>
-              ${cve.language ? `<span class="lang-badge">${escapeHtml(cve.language)}</span>` : ''}
+              <div class="chips" style="margin:0;">
+                ${cve.collection === 'post-cutoff' ? '<span class="lang-badge set-badge">post-cutoff</span>' : ''}
+                ${cve.language ? `<span class="lang-badge">${escapeHtml(cve.language)}</span>` : ''}
+              </div>
             </div>
             <div class="project-line">
               ${projectUrl ? `<a href="${escapeHtml(projectUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(cve.project || 'Project')}</a>` : escapeHtml(cve.project || 'Unknown project')}
@@ -526,6 +535,7 @@
             <div class="chips">
               ${safeArray(cve.cwes).map(cwe => `<span class="pill">${escapeHtml(cwe)}</span>`).join('')}
               ${cve.language ? `<span class="pill">${escapeHtml(cve.language)}</span>` : ''}
+              ${cve.collection === 'post-cutoff' ? '<span class="pill">post-cutoff</span>' : ''}
               ${cve.cvss ? `<span class="pill">CVSS ${escapeHtml(cve.cvss)}</span>` : ''}
             </div>
           </div>
