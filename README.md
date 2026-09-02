@@ -4,7 +4,7 @@ This repository contains the datasets and replication package for the paper: ***
 
 It supports three main workflows:
 
-- **CVEPath runs**: evaluate models on vulnerable multi-file CVE examples (the 105-CVE study set, or the held-out 14-CVE post-cutoff set).
+- **CVEPath runs**: evaluate models on vulnerable multi-file CVE examples (the 105-CVE study set, the identifier-masked copy of that set, or the held-out 14-CVE post-cutoff set).
 - **Negative-sample runs**: evaluate models on non-vulnerable single-file samples.
 - **Log analysis**: analyze model run logs into CSV summaries and plots.
 
@@ -31,13 +31,15 @@ It supports three main workflows:
     - [`vulnerable_paths.json`](#vulnerable_pathsjson)
     - [`source/`](#source)
   - [Post-cutoff CVEs](#post-cutoff-cves)
+  - [Identifier-masked CVEPath](#identifier-masked-cvepath)
   - [Negative samples](#negative-samples)
 - [How to run the project](#how-to-run-the-project)
   - [1. Run one CVEPath CVE](#1-run-one-cvepath-cve)
   - [2. Run all CVEPath CVEs](#2-run-all-cvepath-cves)
   - [3. Run the post-cutoff set](#3-run-the-post-cutoff-set)
-  - [4. Run negative samples](#4-run-negative-samples)
-  - [5. Analyze saved logs](#5-analyze-saved-logs)
+  - [4. Run the identifier-masked set](#4-run-the-identifier-masked-set)
+  - [5. Run negative samples](#5-run-negative-samples)
+  - [6. Analyze saved logs](#6-analyze-saved-logs)
 - [CLI reference](#cli-reference)
   - [`run_llms_on_cvepath.py`](#run_llms_on_cvepathpy)
   - [`run_llms_on_negative_samples.py`](#run_llms_on_negative_samplespy)
@@ -57,6 +59,9 @@ It supports three main workflows:
 │   │   ├── Java/
 │   │   └── Python/
 │   ├── post-cutoff-cves/
+│   │   └── Python/
+│   ├── CVEPath_obf/
+│   │   ├── Java/
 │   │   └── Python/
 │   └── negative_samples/
 │       ├── Java/
@@ -96,7 +101,7 @@ This folder is created automatically when needed.
 - one selected CVE, or
 - all CVEs in the CVEPath dataset
 
-It loads prompt templates from `prompt_templates/`, reads source files from `data/CVEPath/` (or `data/post-cutoff-cves/` if you pass `--dataset-dir`), queries the selected provider, and saves one JSON log per run under `output/runs/`.
+It loads prompt templates from `prompt_templates/`, reads source files from `data/CVEPath/` (or `data/CVEPath_obf/` / `data/post-cutoff-cves/` if you pass `--dataset-dir`), queries the selected provider, and saves one JSON log per run under `output/runs/`.
 
 ### 2. Negative-sample experiments
 `python scripts/run_llms_on_negative_samples.py` runs the same prompting flow on non-vulnerable single-file examples stored in `data/negative_samples/`.
@@ -331,6 +336,29 @@ The 14 instances are:
 
 Point the CVEPath runner at this tree with `--dataset-dir data/post-cutoff-cves` and `--language Python`. Use a separate `--out-dir` so post-cutoff logs are not mixed with the 105-CVE runs.
 
+### Identifier-masked CVEPath
+
+`data/CVEPath_obf/` is a semantics-preserving identifier-masked copy of the **same 105 CVEs** as `data/CVEPath/` (43 Java + 62 Python). It is not mixed into the unmasked tree. Use it for the RQ1 contamination check: rename user-defined identifiers to opaque tokens (`Cls_####` / `Fn_####` / `v_####`), rename files to `file_####.ext`, and redact comments, Python docstrings, CVE IDs, and project-name tokens. Language keywords and a blocklist of standard-library / framework source/sink APIs stay intact.
+
+The annotation files and `source/` tree follow the CVEPath schema. Paths and snippets in `input_filenames.json` and `vulnerable_paths.json` already point at the masked files, so **score these runs against `data/CVEPath_obf`, not `data/CVEPath`**. Each CVE folder also has `obf_map.json` (`file_map` and `ident_map`) for audit; the runner does not read it. Metadata is stripped of CVE descriptions, project names, commits, and diffs.
+
+```text
+data/CVEPath_obf/
+├── Java/
+│   └── CVE-2021-41110_cwlviewer/
+│       ├── annotations/
+│       │   ├── input_filenames.json
+│       │   ├── vulnerable_paths.json
+│       │   └── cve_metadata.json
+│       ├── obf_map.json
+│       └── source/
+│           └── file_0001.java
+└── Python/
+    └── ...
+```
+
+Point the CVEPath runner at this tree with `--dataset-dir data/CVEPath_obf`. Use a separate `--out-dir` so masked logs are not mixed with unmasked 105-CVE runs.
+
 ### Negative samples
 
 The negative-sample dataset is organized by language, with one folder per sample.
@@ -423,7 +451,47 @@ python scripts/analyze_runs.py \
   --recursive
 ```
 
-### 4. Run negative samples
+### 4. Run the identifier-masked set
+
+Same runner as CVEPath. Pass `--dataset-dir data/CVEPath_obf`. Score against the masked annotations (not `data/CVEPath`).
+
+One CVE:
+
+```bash
+python scripts/run_llms_on_cvepath.py \
+  --cve CVE-2021-41110 \
+  --language Java \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode llmpath \
+  --dataset-dir data/CVEPath_obf \
+  --out-dir output/runs_obf
+```
+
+All 105 CVEs:
+
+```bash
+python scripts/run_llms_on_cvepath.py \
+  --all-cves \
+  --language all \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode llmpath \
+  --dataset-dir data/CVEPath_obf \
+  --out-dir output/runs_obf
+```
+
+```bash
+python scripts/analyze_runs.py \
+  --logs-dir output/runs_obf \
+  --cvepath-dataset-dir data/CVEPath_obf \
+  --negative-dataset-dir data/negative_samples \
+  --output-dir output/analysis_obf \
+  --analysis-model claude-sonnet-4-5 \
+  --recursive
+```
+
+### 5. Run negative samples
 
 ```bash
 python scripts/run_llms_on_negative_samples.py \
@@ -433,7 +501,7 @@ python scripts/run_llms_on_negative_samples.py \
   --prompt-mode all
 ```
 
-### 5. Analyze saved logs
+### 6. Analyze saved logs
 
 Minimal example:
 
@@ -480,6 +548,7 @@ Notes:
 - `--cve` and `--all-cves` are mutually exclusive.
 - CVEPath runs default to a positive ground-truth label.
 - For the held-out set use `--dataset-dir data/post-cutoff-cves` and `--language Python`.
+- For the identifier-masked set use `--dataset-dir data/CVEPath_obf` and score with `--cvepath-dataset-dir data/CVEPath_obf`.
 
 ### `run_llms_on_negative_samples.py`
 

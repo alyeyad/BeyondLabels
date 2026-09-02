@@ -1,0 +1,639 @@
+{
+  "ok": [
+    {
+      "cve": "CVE-2014-125052_sparql-identifiers",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2014-125087_java-xmlbuilder",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2017-1000487_plexus-utils",
+      "lang": "Java",
+      "n_files": 4,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2018-1000613_bc-java",
+      "lang": "Java",
+      "n_files": 6,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2018-12036_DependencyCheck",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2018-21234_jodd",
+      "lang": "Java",
+      "n_files": 6,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2019-10078_jspwiki",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2020-15097_loklak_server",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2020-5405_spring-cloud-config",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2020-6950_mojarra",
+      "lang": "Java",
+      "n_files": 7,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-30180_dubbo",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-32634_emissary",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-33950_document-management-system",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-3869_corenlp",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-41110_cwlviewer",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-21675_bytecode-viewer",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-22963_spring-cloud-function",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-23612_openmrs-core",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-24818_geotools",
+      "lang": "Java",
+      "n_files": 6,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-24830_openclinica",
+      "lang": "Java",
+      "n_files": 4,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-24891_esapi-java-legacy",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-31194_dspace",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-31195_dspace",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-32287_uima-uimaj",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-41958_super-xray",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-42889_commons-text",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-44645_linkis",
+      "lang": "Java",
+      "n_files": 4,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-45064_sling-org-apache-sling-engine",
+      "lang": "Java",
+      "n_files": 6,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-46166_spring-boot-admin",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-46907_jspwiki",
+      "lang": "Java",
+      "n_files": 6,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-4772_widoco",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-4773_cloudsync",
+      "lang": "Java",
+      "n_files": 4,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-4963_spring-module-core",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-1495_rebuild",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-24430_semantic-versioning-plugin",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-25158_geotools",
+      "lang": "Java",
+      "n_files": 11,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-36480_aerospike-client-java",
+      "lang": "Java",
+      "n_files": 6,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-41886_openrefine",
+      "lang": "Java",
+      "n_files": 4,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-42809_redisson",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-45277_yamcs",
+      "lang": "Java",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-45278_yamcs",
+      "lang": "Java",
+      "n_files": 11,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-49109_dolphinscheduler",
+      "lang": "Java",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-51770_dolphinscheduler",
+      "lang": "Java",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2011-3211_bcfg2",
+      "lang": "Python",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2012-3366_bcfg2",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2012-4520_django",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2013-0342_pyrad",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2014-125073_voteapp",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2014-1858_numpy",
+      "lang": "Python",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2014-3498_ansible",
+      "lang": "Python",
+      "n_files": 4,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2015-10026_flairbot",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2015-10056_vinylmap",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2018-25082_weixin-python",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2018-7753_bleach",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2019-11340_sydent",
+      "lang": "Python",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2019-12387_twisted",
+      "lang": "Python",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2019-16056_cpython",
+      "lang": "Python",
+      "n_files": 5,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2019-19010_limnoria",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2020-15239_xmpp-http-upload",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2020-5227_python-feedgen",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2020-7471_django",
+      "lang": "Python",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-21371_integration-jira-cloud",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-29431_sydent",
+      "lang": "Python",
+      "n_files": 9,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-29433_sydent",
+      "lang": "Python",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-32805_flask-appbuilder",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-37705_onefuzz",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-40323_cobbler",
+      "lang": "Python",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-41127_rasa",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-41131_python-tuf",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-41185_mycodo",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-4315_psiturk",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-43777_redash",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-43780_redash",
+      "lang": "Python",
+      "n_files": 5,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-43811_sockeye",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-43837_vault-cli",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-43857_gerapy",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2021-46898_django-grappelli",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-0697_archivy",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-0766_calibre-web",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-0767_calibre-web",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-0869_spirit",
+      "lang": "Python",
+      "n_files": 10,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-1806_rtx",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-1813_rengine",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-24065_cookiecutter",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-31506_opendiamond",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-31507_ganga",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-31549_helm-flask-celery",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-31564_munhak-moa",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-35918_streamlit",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-36081_wikmd",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-36082_mangadex-downloader",
+      "lang": "Python",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-4396_pyrdfa3",
+      "lang": "Python",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-44900_py7zr",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-4495_collective.dms.basecontent",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-45907_pytorch",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2022-45908_paddle",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-23930_vantage6",
+      "lang": "Python",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-24816_ipython",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-26051_saleor",
+      "lang": "Python",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-36826_sentry",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-4033_mlflow",
+      "lang": "Python",
+      "n_files": 2,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-40581_yt-dlp",
+      "lang": "Python",
+      "n_files": 3,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-41319_fides",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-42819_jumpserver",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    },
+    {
+      "cve": "CVE-2023-45158_web2py",
+      "lang": "Python",
+      "n_files": 1,
+      "source": "rebuild"
+    }
+  ],
+  "failures": [],
+  "n_ok": 105,
+  "n_fail": 0,
+  "n_reuse": 0,
+  "n_rebuild": 105
+}
