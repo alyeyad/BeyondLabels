@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 
 LanguageOption = Literal["Java", "Python", "all"]
@@ -19,6 +19,7 @@ DEFAULT_NEGATIVE_DATASET_DIR = PROJECT_ROOT / "data" / "negative_samples"
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output"
 DEFAULT_LLMPATH_RUNS_OUTPUT_DIR = DEFAULT_OUTPUT_DIR / "runs"
+DEFAULT_DISTRACTOR_REPOS_DIR = DEFAULT_OUTPUT_DIR / "original_repos"
 
 DEFAULT_ANALYSIS_LOGS_DIR = DEFAULT_LLMPATH_RUNS_OUTPUT_DIR
 DEFAULT_ANALYSIS_OUT_DIR = DEFAULT_OUTPUT_DIR / "analysis"
@@ -41,6 +42,20 @@ class RunConfig:
     prompt_mode: PromptMode = "all"
     actual_label: int = 1
 
+    # E2 (multi-run variance): repeat each query `runs` times. `temperature`
+    # is auto-omitted for reasoning models; `seed` is forwarded for OpenAI
+    # chat models. Defaults target AE#2 / R3C3 variance runs (4 x temp 0.2).
+    runs: int = 4
+    temperature: Optional[float] = 0.2
+    seed: int = 1000
+
+    # E3 (distractor-context / non-oracle inputs): append `distractors` extra
+    # same-repo files (int count, or "all-in-dir" / "all") sampled from the full
+    # vulnerable-commit checkout under `distractor_repos_dir`.
+    distractors: str = "0"
+    distractor_seed: int = 1234
+    distractor_repos_dir: Path | None = None
+
     dataset_dir: Path | None = None
     out_dir: Path | None = None
     llmpath_prompt_path: Path = DEFAULT_LLMPATH_PROMPT_PATH
@@ -49,6 +64,11 @@ class RunConfig:
     def __post_init__(self) -> None:
         self.llmpath_prompt_path = Path(self.llmpath_prompt_path)
         self.baseline_prompt_path = Path(self.baseline_prompt_path)
+
+        if self.distractor_repos_dir is None:
+            self.distractor_repos_dir = DEFAULT_DISTRACTOR_REPOS_DIR
+        else:
+            self.distractor_repos_dir = Path(self.distractor_repos_dir)
 
         if self.dataset_dir is None:
             self.dataset_dir = (
@@ -90,7 +110,23 @@ class RunConfig:
                 f"Baseline prompt file does not exist: {self.baseline_prompt_path}"
             )
 
+        if self.distractors_enabled():
+            if self.distractor_repos_dir is None:
+                raise ValueError(
+                    "distractors requested but distractor_repos_dir is not set; "
+                    "point it at full vulnerable-commit repo checkouts."
+                )
+            if not self.distractor_repos_dir.exists():
+                raise FileNotFoundError(
+                    f"Distractor repos directory does not exist: {self.distractor_repos_dir}. "
+                    "Run: python scripts/clone_cvepath_repos.py"
+                )
+
         self.out_dir.mkdir(parents=True, exist_ok=True)
+
+    def distractors_enabled(self) -> bool:
+        value = str(self.distractors).strip().lower()
+        return value not in ("", "0", "none")
 
     def active_languages(self) -> list[str]:
         if self.language == "all":

@@ -1,7 +1,5 @@
-**/.idea
-
-**/__pycache__
-
+output/
+__pycache__/
+*.pyc
 scripts/.env
-
-output
+.venv/

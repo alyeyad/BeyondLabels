@@ -4,9 +4,11 @@ This repository contains the datasets and replication package for the paper: ***
 
 It supports three main workflows:
 
-- **CVEPath runs**: evaluate models on vulnerable multi-file CVE examples (the 105-CVE study set, the identifier-masked copy of that set, or the held-out 14-CVE post-cutoff set).
+- **CVEPath runs**: evaluate models on vulnerable multi-file CVE examples (the 105-CVE study set, the identifier-masked copy of that set, or the held-out 14-CVE post-cutoff set). Optionally append same-repo distractor files (`k` = 1, 3, or 5).
 - **Negative-sample runs**: evaluate models on non-vulnerable single-file samples.
 - **Log analysis**: analyze model run logs into CSV summaries and plots.
+
+CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 0.2`, `--seed 1000`). Use `--runs 1 --temperature 0.0` to reproduce the original single-run baseline.
 
 ---
 ## Table of contents
@@ -38,10 +40,16 @@ It supports three main workflows:
   - [2. Run all CVEPath CVEs](#2-run-all-cvepath-cves)
   - [3. Run the post-cutoff set](#3-run-the-post-cutoff-set)
   - [4. Run the identifier-masked set](#4-run-the-identifier-masked-set)
-  - [5. Run negative samples](#5-run-negative-samples)
-  - [6. Analyze saved logs](#6-analyze-saved-logs)
+  - [5. Clone full repos for distractors](#5-clone-full-repos-for-distractors)
+  - [6. Run with distractor files](#6-run-with-distractor-files)
+  - [7. Run RQ4 detection](#7-run-rq4-detection)
+  - [8. Run negative samples](#8-run-negative-samples)
+  - [9. Analyze saved logs](#9-analyze-saved-logs)
 - [CLI reference](#cli-reference)
   - [`run_llms_on_cvepath.py`](#run_llms_on_cvepathpy)
+  - [`clone_cvepath_repos.py`](#clone_cvepath_repospy)
+  - [`run_detection_positives.py`](#run_detection_positivespy)
+  - [`run_detection_negatives.py`](#run_detection_negativespy)
   - [`run_llms_on_negative_samples.py`](#run_llms_on_negative_samplespy)
   - [`analyze_runs.py`](#analyze_runspy)
 - [Outputs](#outputs)
@@ -73,6 +81,9 @@ It supports three main workflows:
 ├── scripts/
 │   ├── .env.example
 │   ├── analyze_runs.py
+│   ├── clone_cvepath_repos.py
+│   ├── run_detection_negatives.py
+│   ├── run_detection_positives.py
 │   ├── run_llms_on_negative_samples.py
 │   └── run_llms_on_cvepath.py
 └── src/
@@ -80,7 +91,10 @@ It supports three main workflows:
     ├── log_analyzer/
     ├── log_analysis_pipeline.py
     ├── negative_pipeline.py
+    ├── negative_pipeline_detect.py
     ├── cvepath_pipeline.py
+    ├── cvepath_pipeline_detect.py
+    ├── detection_parallel.py
     └── utils/
 ```
 
@@ -101,7 +115,7 @@ This folder is created automatically when needed.
 - one selected CVE, or
 - all CVEs in the CVEPath dataset
 
-It loads prompt templates from `prompt_templates/`, reads source files from `data/CVEPath/` (or `data/CVEPath_obf/` / `data/post-cutoff-cves/` if you pass `--dataset-dir`), queries the selected provider, and saves one JSON log per run under `output/runs/`.
+It loads prompt templates from `prompt_templates/`, reads source files from `data/CVEPath/` (or `data/CVEPath_obf/` / `data/post-cutoff-cves/` if you pass `--dataset-dir`), queries the selected provider, and saves one JSON log per run under `output/runs/`. With `--distractors k` (`k` = 1, 3, or 5) it appends same-language files sampled from full vulnerable-commit checkouts under `output/original_repos/` (built by `scripts/clone_cvepath_repos.py`). `k = 0` (the default) does not need those checkouts.
 
 ### 2. Negative-sample experiments
 `python scripts/run_llms_on_negative_samples.py` runs the same prompting flow on non-vulnerable single-file examples stored in `data/negative_samples/`.
@@ -491,7 +505,93 @@ python scripts/analyze_runs.py \
   --recursive
 ```
 
-### 5. Run negative samples
+### 5. Clone full repos for distractors
+
+CVEPath ships only the oracle source files. Distractor sampling needs each project's **full tree at the pre-fix commit**. `scripts/clone_cvepath_repos.py` reads `data/CVEPath/` metadata and writes:
+
+```text
+output/original_repos/{Java,Python}/<CVE>_<repo>/
+```
+
+That path is the default `--distractor-repos-dir`. The clones are gitignored under `output/` (they are large). Resume-safe: a dest already at the target commit is skipped.
+
+```bash
+python scripts/clone_cvepath_repos.py
+```
+
+Optional: `--dry-run`, `--limit N`, `--language Python`, `--out PATH`, `--cvepath data/CVEPath`. Set `GITHUB_TOKEN` if GitHub rate-limits anonymous clones.
+
+### 6. Run with distractor files
+
+Same runner as CVEPath. Sample `k` extra same-language files from `output/original_repos/{Java,Python}/<CVE>_<repo>/` (after step 5). The sampler prefers files in the same directory as the shown code, skips tests and empty files, and never uses a file that appears on any reference path of that CVE. Distractors are appended **after** the oracle combination so reference line numbers stay comparable. With the default seed (`1234`), `k = 1` is a prefix of `k = 3` / `k = 5`.
+
+`--distractor-repos-dir` defaults to `output/original_repos`. Required only when `--distractors` is not `0`.
+
+```bash
+python scripts/run_llms_on_cvepath.py \
+  --all-cves \
+  --language all \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode llmpath \
+  --distractors 3 \
+  --distractor-seed 1234 \
+  --out-dir output/runs_e3/k3
+```
+
+Score as usual. Matching uses the CVE's reference paths (and the `needed_files` field in each log), not distractor file headers.
+
+```bash
+python scripts/analyze_runs.py \
+  --logs-dir output/runs_e3/k3 \
+  --cvepath-dataset-dir data/CVEPath \
+  --negative-dataset-dir data/negative_samples \
+  --output-dir output/analysis_e3/k3 \
+  --analysis-model claude-sonnet-4-5 \
+  --recursive
+```
+
+### 7. Run RQ4 detection
+
+RQ4 positives reuse the CVEPath runner's file combinations and distractor sampler, and add `--workers` for parallel API calls. Default prompt mode is `baseline` (LLMPath positives can come from `run_llms_on_cvepath.py`).
+
+```bash
+python scripts/run_detection_positives.py \
+  --all-cves \
+  --language all \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode baseline \
+  --out-dir output/runs_detect
+```
+
+With distractors (`k > 0`), clone first, then pass `--distractors` (repos default to `output/original_repos`):
+
+```bash
+python scripts/run_detection_positives.py \
+  --all-cves \
+  --language all \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode baseline \
+  --distractors 3 \
+  --out-dir output/runs_detect_e3/k3
+```
+
+Oracle RQ4 negatives (multi-run majority, no distractors):
+
+```bash
+python scripts/run_detection_negatives.py \
+  --language all \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode all \
+  --out-dir output/runs_detect_neg
+```
+
+`scripts/run_llms_on_negative_samples.py` remains the original single-run negatives path.
+
+### 8. Run negative samples
 
 ```bash
 python scripts/run_llms_on_negative_samples.py \
@@ -501,7 +601,7 @@ python scripts/run_llms_on_negative_samples.py \
   --prompt-mode all
 ```
 
-### 6. Analyze saved logs
+### 9. Analyze saved logs
 
 Minimal example:
 
@@ -540,15 +640,52 @@ Other options:
 - `--model MODEL_NAME`
 - `--provider PROVIDER_NAME`
 - `--prompt-mode {llmpath,baseline,all}`
-- `--actual-label ` default: `1`
+- `--actual-label INT` default: `1`
+- `--runs INT` default: `4` (multi-run variance)
+- `--temperature FLOAT` default: `0.2` (auto-omitted for reasoning models)
+- `--seed INT` default: `1000` (run *i* uses `seed+i` for OpenAI chat models)
+- `--distractors STR` default: `0` (E3 distractor count, or `all-in-dir` / `all`)
+- `--distractor-seed INT` default: `1234`
+- `--distractor-repos-dir PATH` default: `output/original_repos`
 - `--dataset-dir PATH` default: `data/CVEPath`
 - `--out-dir PATH` default: `output/runs`
 
 Notes:
 - `--cve` and `--all-cves` are mutually exclusive.
 - CVEPath runs default to a positive ground-truth label.
+- Default `--runs 4` and `--temperature 0.2` target variance estimation; use `--runs 1 --temperature 0.0` to reproduce the original single-run baseline.
 - For the held-out set use `--dataset-dir data/post-cutoff-cves` and `--language Python`.
 - For the identifier-masked set use `--dataset-dir data/CVEPath_obf` and score with `--cvepath-dataset-dir data/CVEPath_obf`.
+- For `--distractors` != `0`, run `python scripts/clone_cvepath_repos.py` first. `k = 0` does not need those checkouts.
+
+### `clone_cvepath_repos.py`
+
+```bash
+python scripts/clone_cvepath_repos.py [OPTIONS]
+```
+
+Options:
+- `--cvepath PATH` default: `data/CVEPath`
+- `--out PATH` default: `output/original_repos`
+- `--language {Java,Python,all}`
+- `--limit N`
+- `--dry-run`
+
+### `run_detection_positives.py`
+
+```bash
+python scripts/run_detection_positives.py [OPTIONS]
+```
+
+Same target and distractor flags as `run_llms_on_cvepath.py`, plus `--workers` (default `1`). Default `--prompt-mode` is `baseline`.
+
+### `run_detection_negatives.py`
+
+```bash
+python scripts/run_detection_negatives.py [OPTIONS]
+```
+
+Oracle RQ4 negatives with `--runs` / `--temperature` / `--seed` / `--workers` / `--out-dir`. Does not take `--distractors`.
 
 ### `run_llms_on_negative_samples.py`
 
