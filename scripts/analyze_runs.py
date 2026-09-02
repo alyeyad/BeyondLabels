@@ -9,7 +9,7 @@ import argparse
 
 from pathlib import Path
 import sys
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.log_analysis_pipeline import run_log_analysis
 from src.utils.config import AnalysisConfig

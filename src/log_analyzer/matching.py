@@ -11,7 +11,11 @@ def calculate_median_path_length(paths: Dict[str, Dict[str, Any]]) -> float:
 
 
 def calculate_median_output_path_length(output_paths: List[Dict[str, Any]]) -> float:
-    lengths = [len(path_info.get("taint_path", [])) for path_info in output_paths]
+    lengths = [
+        len(sanitize_taint_path(path_info.get("taint_path", [])))
+        for path_info in output_paths
+        if isinstance(path_info, dict)
+    ]
     return float(np.median(lengths)) if lengths else 0.0
 
 
@@ -134,6 +138,8 @@ def compare_paths_by_line(real_path: List[Dict[str, Any]], output_dict: Dict[str
     return match_list
 
 def nodes_match(node_a: Dict[str, Any], node_b: Dict[str, Any]) -> bool:
+    if not isinstance(node_a, dict) or not isinstance(node_b, dict):
+        return False
     if node_a.get("file_name") != node_b.get("file"):
         return False
 
@@ -147,6 +153,13 @@ def nodes_match(node_a: Dict[str, Any], node_b: Dict[str, Any]) -> bool:
         return False
 
     return _interval_overlap(real_start, real_end, pred_start, pred_end)
+
+
+def sanitize_taint_path(taint_path: Any) -> List[Dict[str, Any]]:
+    """Keep only well-formed dict nodes from an LLM taint_path list."""
+    if not isinstance(taint_path, list):
+        return []
+    return [node for node in taint_path if isinstance(node, dict)]
 
 
 def longest_common_subsequence_stretched(
@@ -236,7 +249,9 @@ def get_real_and_predicted_matches_standard(
 ) -> List[Dict[str, Any]]:
     final_matches: List[Dict[str, Any]] = []
     for op_idx, op_path in enumerate(output_paths):
-        taint_path = op_path.get("taint_path", [])
+        if not isinstance(op_path, dict):
+            continue
+        taint_path = sanitize_taint_path(op_path.get("taint_path", []))
         output_files = sorted({node["file"] for node in taint_path if "file" in node})
         for path_hash, real_path in real_paths.items():
 
@@ -285,7 +300,9 @@ def get_all_lcs_matches(real_paths: Dict[str, Dict[str, Any]], output_paths: Lis
     all_lcs: Dict[Tuple[str, int], Dict[str, Any]] = {}
     for path_hash, real_path in real_paths.items():
         for op_idx, output_path in enumerate(output_paths):
-            taint_path = output_path.get("taint_path", [])
+            if not isinstance(output_path, dict):
+                continue
+            taint_path = sanitize_taint_path(output_path.get("taint_path", []))
             lcs_matches = longest_common_subsequence_stretched(real_path, taint_path, min_len=1)
             best = {} if len(lcs_matches) < 1 else lcs_matches[0]
             if best:

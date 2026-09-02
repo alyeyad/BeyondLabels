@@ -80,13 +80,9 @@ def create_combined_results_df(
     ]
     ordered = [col for col in preferred_order if col in combined.columns]
     remaining = [col for col in combined.columns if col not in ordered]
-    result = combined[ordered + remaining]
-
-    df_unique = result.loc[
-        result.groupby(["CVE", "promptType", "model"])["nor"].idxmax()
-    ].reset_index(drop=True)
-
-    return df_unique
+    # Keep every run. Callers that need a single score per CVE should take the
+    # median over runs (see create_model_summary_table), not the max-NOR run.
+    return combined[ordered + remaining]
 
 
 def create_model_summary_table(combined_df: pd.DataFrame) -> pd.DataFrame:
@@ -114,8 +110,28 @@ def create_model_summary_table(combined_df: pd.DataFrame) -> pd.DataFrame:
     df["sinkHit"] = pd.to_numeric(df["sinkHit"], errors="coerce").fillna(0.0)
     df["numOverlapNodes"] = pd.to_numeric(df["numOverlapNodes"], errors="coerce").fillna(0.0)
 
+    # Median-of-runs per CVE (and file combination when present), then aggregate.
+    group_keys = ["model", "CVE"]
+    if "neededFiles" in df.columns:
+        df = df.copy()
+        df["_files_key"] = df["neededFiles"].map(
+            lambda x: "|".join(map(str, x)) if isinstance(x, (list, tuple)) else str(x)
+        )
+        group_keys.append("_files_key")
+    per_unit = (
+        df.groupby(group_keys, dropna=False)
+        .agg(
+            nor=("nor", "median"),
+            lcnr=("lcnr", "median"),
+            sourceHit=("sourceHit", "median"),
+            sinkHit=("sinkHit", "median"),
+            numOverlapNodes=("numOverlapNodes", "median"),
+        )
+        .reset_index()
+    )
+
     summary_all = (
-        df.groupby("model", dropna=False)
+        per_unit.groupby("model", dropna=False)
         .agg(
             median_overlap=("nor", "median"),
             median_lcs_overlap=("lcnr", "median"),
@@ -123,7 +139,7 @@ def create_model_summary_table(combined_df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
 
-    overlap_df = df[(df["nor"] > 0) | (df["numOverlapNodes"] > 0)].copy()
+    overlap_df = per_unit[(per_unit["nor"] > 0) | (per_unit["numOverlapNodes"] > 0)].copy()
 
     if overlap_df.empty:
         summary_all["mean_real_src_found"] = 0.0

@@ -146,7 +146,10 @@ def process_output_files(
         lcs_matches: Dict[Tuple[str, int], Dict[str, Any]] = {}
 
         if isinstance(output_parsed, dict) and "findings" in output_parsed:
-            findings = output_parsed.get("findings", []) or []
+            findings = [
+                f for f in (output_parsed.get("findings", []) or [])
+                if isinstance(f, dict)
+            ]
             final_matches = get_real_and_predicted_matches_standard(real_paths, findings)
             op_label = determine_output_label(output_parsed)
             median_op_len = calculate_median_output_path_length(findings)

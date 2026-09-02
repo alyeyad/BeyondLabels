@@ -126,7 +126,8 @@ def run_log_analysis(config: AnalysisConfig) -> None:
         model_summary_df.to_csv(data_dir / "rq1_model_summary.csv", index=False)
 
         best_model_path_only_df = combined_df[(combined_df["model"] == config.analysis_model)&(combined_df["promptType"] == "llmpath")].copy()
-        best_model_path_only_df.to_csv(data_dir / f"cvepath_best_model_{config.analysis_model}_llmpath.csv", index=False)
+        safe_model = config.analysis_model.replace("/", "__")
+        best_model_path_only_df.to_csv(data_dir / f"cvepath_best_model_{safe_model}_llmpath.csv", index=False)
 
         plot_nor_scatter(
             best_model_path_only_df,

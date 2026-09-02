@@ -621,6 +621,8 @@ python scripts/analyze_runs.py \
   --recursive
 ```
 
+Per-run scores stay in `output/analysis/data/cvepath_results.csv`. `rq1_model_summary.csv` is the **median of runs per CVE**, then the median across CVEs (Table I / E3 / masking). Malformed `taint_path` nodes are skipped rather than crashing the scorer.
+
 ---
 
 ## CLI reference
@@ -722,6 +724,7 @@ Options:
 Notes:
 - You should use either `--recursive` or `--no-recursive`, not both.
 - The default analysis model in the code is `claude-sonnet-4-5`.
+- Model-level NOR/LCNR are the median of per-CVE medians across runs, not the max-NOR run.
 
 ---
 
@@ -760,6 +763,6 @@ output/analysis/
 └── plots/
 ```
 
-Examples of generated outputs include CSV summaries and PDF plots.
+Examples of generated outputs include CSV summaries and PDF plots. `data/cvepath_results.csv` keeps every run; `data/rq1_model_summary.csv` aggregates with median-of-runs per CVE.
 
 ---
