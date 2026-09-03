@@ -1,0 +1,11 @@
+name: my-org/python-queries
+version: 0.0.1
+groups: [python, queries]
+
+dependencies:
+  codeql/python-all: ^0.8.3
+  codeql/suite-helpers: ^0.8.3
+
+suites: codeql-suites
+extractor: python
+defaultSuiteFile: codeql-suites/python-code-scanning.qls

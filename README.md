@@ -2,11 +2,12 @@
 
 This repository contains the datasets and replication package for the paper: ***Beyond Labels: Evaluating LLMs on Vulnerable-Path Reconstruction***
 
-It supports three main workflows:
+It supports four main workflows:
 
 - **CVEPath runs**: evaluate models on vulnerable multi-file CVE examples (the 105-CVE study set, the identifier-masked copy of that set, or the held-out 14-CVE post-cutoff set). Optionally append same-repo distractor files (`k` = 1, 3, or 5).
 - **Negative-sample runs**: evaluate models on non-vulnerable single-file samples.
 - **Log analysis**: analyze model run logs into CSV summaries and plots.
+- **Post-cutoff data collection**: rebuild a held-out set from scratch, from GitHub advisories published after a chosen cutoff through the study-design stages up to PF-1.
 
 CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 0.2`, `--seed 1000`). Use `--runs 1 --temperature 0.0` to reproduce the original single-run baseline.
 
@@ -18,6 +19,7 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
   - [1. CVEPath experiments](#1-cvepath-experiments)
   - [2. Negative-sample experiments](#2-negative-sample-experiments)
   - [3. Log analysis](#3-log-analysis)
+  - [4. Post-cutoff data collection](#4-post-cutoff-data-collection)
 - [Requirements](#requirements)
 - [Setup](#setup)
   - [1. Go to the project root](#1-go-to-the-project-root)
@@ -45,6 +47,12 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
   - [7. Run RQ4 detection](#7-run-rq4-detection)
   - [8. Run negative samples](#8-run-negative-samples)
   - [9. Analyze saved logs](#9-analyze-saved-logs)
+- [Rebuild a post-cutoff set](#rebuild-a-post-cutoff-set)
+  - [Pipeline stages](#pipeline-stages)
+  - [1. Install CodeQL 2.15.3](#1-install-codeql-2153)
+  - [2. Add collection tokens](#2-add-collection-tokens)
+  - [3. Run the collection](#3-run-the-collection)
+  - [Collection outputs](#collection-outputs)
 - [CLI reference](#cli-reference)
   - [`run_llms_on_cvepath.py`](#run_llms_on_cvepathpy)
   - [`clone_cvepath_repos.py`](#clone_cvepath_repospy)
@@ -52,6 +60,8 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
   - [`run_detection_negatives.py`](#run_detection_negativespy)
   - [`run_llms_on_negative_samples.py`](#run_llms_on_negative_samplespy)
   - [`analyze_runs.py`](#analyze_runspy)
+  - [`setup_codeql.py`](#setup_codeqlpy)
+  - [`collect_post_cutoff.py`](#collect_post_cutoffpy)
 - [Outputs](#outputs)
   - [Run outputs](#run-outputs)
   - [Analysis outputs](#analysis-outputs)
@@ -79,27 +89,36 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
 │   └── appendix.pdf
 ├── prompt_templates/
 │   ├── baseline_prompt.txt
-│   └── cvepath_prompt.txt
+│   ├── llmpath_prompt.txt
+│   └── llm_multifile_labelling.txt
+├── query_packs/
+│   ├── base_queries/Python/
+│   └── custom-cwe-queries/Python/
 ├── requirements.txt
 ├── scripts/
 │   ├── .env.example
 │   ├── analyze_runs.py
 │   ├── clone_cvepath_repos.py
+│   ├── collect_post_cutoff.py
 │   ├── run_detection_negatives.py
 │   ├── run_detection_positives.py
 │   ├── run_llms_on_negative_samples.py
-│   └── run_llms_on_cvepath.py
+│   ├── run_llms_on_cvepath.py
+│   └── setup_codeql.py
 └── src/
     ├── llm_runner/
     ├── log_analyzer/
     ├── log_analysis_pipeline.py
     ├── negative_pipeline.py
     ├── negative_pipeline_detect.py
+    ├── post_cutoff/
     ├── cvepath_pipeline.py
     ├── cvepath_pipeline_detect.py
     ├── detection_parallel.py
     └── utils/
 ```
+
+`query_packs/` holds the CodeQL queries the study design uses to construct candidate paths: `base_queries/` are the shared library files and `custom-cwe-queries/` has one folder per CWE. Only the Python packs are shipped, since the post-cutoff collection is Python-only.
 
 The project writes outputs under:
 
@@ -126,6 +145,9 @@ It loads prompt templates from `prompt_templates/`, reads source files from `dat
 ### 3. Log analysis
 `python scripts/analyze_runs.py` reads the saved JSON logs, matches them back to the datasets, and writes CSV tables and plots under `output/analysis/`.
 
+### 4. Post-cutoff data collection
+`python scripts/collect_post_cutoff.py` rebuilds a held-out set the way `data/post-cutoff-cves/` was built: it discovers advisories published after a cutoff date, applies the CVEPath selection and path-construction stages, and writes the survivors in CVEPath layout. It stops at PF-1; see [Rebuild a post-cutoff set](#rebuild-a-post-cutoff-set).
+
 ---
 
 ## Requirements
@@ -137,6 +159,8 @@ It loads prompt templates from `prompt_templates/`, reads source files from `dat
 The project already includes `requirements.txt`.
 
 Install from it rather than trying to recreate dependencies manually.
+
+Post-cutoff data collection additionally needs **git**, the **CodeQL CLI 2.15.3** (installed by `scripts/setup_codeql.py`), and a GitHub token. Nothing else in the package uses CodeQL.
 
 ---
 
@@ -191,6 +215,14 @@ OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 DEEPSEEK_API_KEY=
 OPENROUTER_API_KEY=
+```
+
+The remaining entries are only read by `scripts/collect_post_cutoff.py`; leave them blank if you are not rebuilding a post-cutoff set.
+
+```env
+GITHUB_TOKEN=
+NVD_API_KEY=
+CODEQL_PATH=
 ```
 
 ---
@@ -352,6 +384,8 @@ The 14 instances are:
 - `CVE-2026-8838_amazon-redshift-python-driver`
 
 Point the CVEPath runner at this tree with `--dataset-dir data/post-cutoff-cves` and `--language Python`. Use a separate `--out-dir` so post-cutoff logs are not mixed with the 105-CVE runs.
+
+To rebuild an equivalent set from scratch, including for a later cutoff date, see [Rebuild a post-cutoff set](#rebuild-a-post-cutoff-set).
 
 ### Identifier-masked CVEPath
 
@@ -641,6 +675,103 @@ Per-run scores stay in `output/analysis/data/cvepath_results.csv`. `rq1_model_su
 
 ---
 
+## Rebuild a post-cutoff set
+
+`scripts/collect_post_cutoff.py` reproduces how `data/post-cutoff-cves/` was built. It starts from GitHub advisories published after a cutoff date and applies the CVEPath study-design stages, writing the survivors in the same layout the runner already reads. Use it to regenerate the shipped 14 cases, or to build a fresh held-out set for a newer model by moving `--cutoff` and `--since` forward.
+
+The pipeline stops at **PF-1**. PF-2, the manual review in which an author confirms that the source and sink match the CVE description and that the intermediate nodes form a valid taint sequence, is not automated and is not part of this script. The shipped 14 CVEs did go through PF-2, so a rebuilt set will generally keep more candidate paths per CVE than `data/post-cutoff-cves/` does.
+
+### Pipeline stages
+
+| Stage | What it does |
+|---|---|
+| Discovery | Reviewed GitHub advisories published on or after `--since` in the `pip` ecosystem, restricted to those carrying a CVE id. |
+| Metadata | Fix commit from a GHSA commit reference, else an OSV `FIX` reference, else an NVD reference; the vulnerable revision is that commit's first parent. Kept only when both the NVD publish date and the fix-commit date fall strictly after `--cutoff`. |
+| CS-1 | Keep CVEs whose NVD CWE has an `@kind path-problem` query in `query_packs/custom-cwe-queries/Python/`, then drop addition-only fixes (a fix must delete or replace lines for a vulnerable hunk to exist). |
+| CS-2 | Label the changed files of multi-file fix commits with an LLM and keep CVEs with at least one `vulnerability-path-fixing` file. Single-file fix commits skip the call. |
+| Clone | Blobless clone of each repository, detached at the vulnerable parent commit. |
+| PC-1 | `codeql database create --language=python` on that checkout, then generate `MySources.qll`, `MySinks.qll` and `MySummaries.qll` from the vulnerable hunks to augment the CWE queries. |
+| PC-2 | `codeql database analyze` with the augmented queries; SARIF code flows become candidate paths. |
+| PF-1 | Keep the candidate paths with the maximum number of distinct vulnerable hunks touched. |
+
+### 1. Install CodeQL 2.15.3
+
+The paper used CodeQL CLI **2.15.3**, which matches the `cliVersion` pinned in `query_packs/base_queries/Python/qlpack.yml`. Cloning `github/codeql` gives the QL sources but not the binary, so the setup script downloads the release archive:
+
+```bash
+python scripts/setup_codeql.py
+```
+
+This unpacks the CLI into `tools/codeql/` (gitignored) and verifies that `codeql version` reports 2.15.3. If you already have that version installed, skip this and set `CODEQL_PATH` in `scripts/.env` instead.
+
+### 2. Add collection tokens
+
+In `scripts/.env`:
+
+- `GITHUB_TOKEN` — required. Advisory listing, commit metadata and cloning all go through the GitHub API, which rate-limits unauthenticated traffic almost immediately.
+- `NVD_API_KEY` — optional but strongly recommended. Without it NVD allows 5 requests per 30 seconds instead of 50, which turns discovery from minutes into hours.
+- `ANTHROPIC_API_KEY` — needed for CS-2, which defaults to Claude Opus 5 (the model used for the shipped set). Override with `--cs2-model` and `--cs2-provider`.
+
+### 3. Run the collection
+
+```bash
+python scripts/collect_post_cutoff.py --language Python --n 14
+```
+
+`--n` is the number of CVEs that must end up with non-empty PF-1 paths. Discovery and the selection stages always run over the full pool, since CS-2 has to leave enough repositories to work with; cloning, database building and querying then proceed smallest repository first and stop as soon as `--n` is reached. Omit `--n` to run every candidate.
+
+Only `--language Python` is wired through PC-1 and PC-2. Java databases need a per-project build command, which the shipped packs do not provide.
+
+Every HTTP response is cached under `output/post_cutoff/cache/`, and each stage skips work it has already done, so an interrupted run can simply be restarted. To rerun one part in isolation, pass a stage subset:
+
+```bash
+python scripts/collect_post_cutoff.py --stages cs2,clone,pc1
+```
+
+For a quick end-to-end check that does not scan the whole advisory feed:
+
+```bash
+python scripts/collect_post_cutoff.py --max-advisories 200 --n 1
+```
+
+### Collection outputs
+
+Everything lands under `output/post_cutoff/` (gitignored):
+
+```text
+output/post_cutoff/
+├── FUNNEL.md                  # stage-by-stage counts for the run
+├── funnel/                    # 01–11, one CVE id per line
+├── candidates.jsonl           # metadata for every CVE past the cutoff
+├── summary.csv
+├── metadata/<CVE>_<repo>/
+├── hunks/                     # removed-line hunks per CVE
+├── cs2/                       # per-CVE classifier output
+├── cvepath_hunks/             # hunks restricted to CS-2 kept files (PC-1 input)
+├── repos/Python/<CVE>_<repo>/ # checkouts at the vulnerable commit
+├── dbs/<CVE>_<repo>/          # CodeQL databases
+├── paths/<CVE>_<repo>/        # raw_paths_<cwe>.json, processed_paths_<cwe>.json
+└── cvepath/Python/<CVE>_<repo>/
+    ├── annotations/
+    └── source/
+```
+
+`cvepath/` is the deliverable and uses the CVEPath schema, so it can be evaluated directly:
+
+```bash
+python scripts/run_llms_on_cvepath.py \
+  --all-cves \
+  --language Python \
+  --model claude-sonnet-4-5 \
+  --provider anthropic \
+  --dataset-dir output/post_cutoff/cvepath \
+  --out-dir output/runs_post_cutoff_new
+```
+
+`funnel/11_pf1_hunk_overlap.txt` lists the CVEs that reached PF-1. There is no `12_`: that stage is manual.
+
+---
+
 ## CLI reference
 
 ### `run_llms_on_cvepath.py`
@@ -741,6 +872,63 @@ Notes:
 - You should use either `--recursive` or `--no-recursive`, not both.
 - The default analysis model in the code is `claude-sonnet-4-5`.
 - Model-level NOR/LCNR are the median of per-CVE medians across runs, not the max-NOR run.
+
+### `setup_codeql.py`
+
+```bash
+python scripts/setup_codeql.py [OPTIONS]
+```
+
+Options:
+- `--version STR` default: `2.15.3`
+- `--dest PATH` default: `tools/codeql`
+- `--platform {linux64,osx64,win64}` default: detected from the host
+- `--force` re-download over an existing install
+
+Notes:
+- Downloads from the `github/codeql-cli-binaries` releases and verifies the unpacked `codeql version`.
+- Only the post-cutoff collection uses CodeQL; nothing else in the package needs it.
+
+### `collect_post_cutoff.py`
+
+```bash
+python scripts/collect_post_cutoff.py [OPTIONS]
+```
+
+Scope:
+- `--language {Python,Java}` default: `Python` (only Python is wired through PC-1/PC-2)
+- `--n INT` stop once this many CVEs have PF-1 paths; default: no limit
+- `--cutoff YYYY-MM-DD` default: `2025-08-31`
+- `--since YYYY-MM-DD` GHSA published-on-or-after date; default: `2025-09-01`
+- `--stages STR` comma-separated subset of `collect,cs1,cs2,clone,pc1,pc2,pack`; default: `all`
+
+Paths:
+- `--out PATH` default: `output/post_cutoff`
+- `--codeql PATH` default: `$CODEQL_PATH`, else `tools/codeql/codeql`
+- `--query-packs PATH` default: `query_packs`
+
+CS-2 classifier:
+- `--cs2-model MODEL_NAME` default: `claude-opus-5`
+- `--cs2-provider PROVIDER_NAME` default: `anthropic`
+- `--cs2-prompt PATH` default: `prompt_templates/llm_multifile_labelling.txt`
+- `--cs2-workers INT` default: `4`
+- `--cs2-limit INT` cap the number of LLM calls this run
+
+Clone and CodeQL:
+- `--clone-workers INT` default: `4`
+- `--clone-retries INT` default: `5`
+- `--threads INT` CodeQL threads; default: `6`
+- `--ram INT` CodeQL RAM in MB; default: `24576`
+
+Smoke tests and caching:
+- `--max-advisories INT` cap the advisories scanned
+- `--limit INT` cap the metadata records kept
+- `--no-resume` ignore the HTTP cache and re-fetch everything
+
+Notes:
+- Needs `GITHUB_TOKEN`, ideally `NVD_API_KEY`, and a key for the CS-2 provider.
+- The pipeline stops at PF-1; PF-2 is a manual review and is not automated.
+- Output in `<out>/cvepath/<language>/` uses CVEPath layout and can be passed to `run_llms_on_cvepath.py --dataset-dir`.
 
 ---
 
