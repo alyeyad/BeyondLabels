@@ -279,6 +279,17 @@ def classify(
                     done += 1
                     log(f"[cs2] [{done}/{n}] {cve} {err or 'ok'}")
 
+    passed = passed_ids(layout, records, model)
+    log(f"[cs2] keep {len(passed)} / {len(records)}")
+    return passed
+
+
+def passed_ids(layout: Layout, records: list[dict], model: str) -> set[str]:
+    """CVEs that pass CS-2, read back from the stored per-CVE results.
+
+    Derived from the result files rather than a funnel list so that a partial or
+    ``--cve``-scoped run can still tell which CVEs are eligible downstream.
+    """
     passed: set[str] = set()
     for rec in records:
         cve = rec.get("cve_id") or ""
@@ -290,10 +301,8 @@ def classify(
             continue
         try:
             data = json.loads(dest.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except (OSError, json.JSONDecodeError):
             continue
         if has_path_fixing(data.get("parsed_output")):
             passed.add(cve)
-
-    log(f"[cs2] keep {len(passed)} / {len(records)}")
     return passed

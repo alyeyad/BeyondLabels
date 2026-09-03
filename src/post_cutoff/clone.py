@@ -8,6 +8,7 @@ detached at the target SHA is left alone, which makes the stage resumable.
 
 from __future__ import annotations
 
+import base64
 import csv
 import os
 import shutil
@@ -71,6 +72,18 @@ def _scrub(text: str, token: str) -> str:
     return text.replace(token, "***") if token else text
 
 
+def _auth_header(token: str) -> str:
+    """Basic auth, not Bearer.
+
+    Git's HTTPS transport rejects ``Authorization: Bearer`` for classic personal
+    access tokens and then falls back to prompting for a username, which fails
+    with ``GIT_TERMINAL_PROMPT=0``. Basic with ``x-access-token`` works for
+    classic PATs, fine-grained tokens and GitHub App installation tokens alike.
+    """
+    raw = base64.b64encode(f"x-access-token:{token}".encode("ascii")).decode("ascii")
+    return f"Authorization: Basic {raw}"
+
+
 def _run_git(
     args: list[str], *, cwd: Path | None = None, token: str = "", network: bool = False
 ) -> tuple[bool, str]:
@@ -80,7 +93,7 @@ def _run_git(
     if network:
         cmd.extend(["-c", "credential.helper=", "-c", "http.version=HTTP/1.1"])
         if token:
-            cmd.extend(["-c", f"http.extraHeader=Authorization: Bearer {token}"])
+            cmd.extend(["-c", f"http.extraHeader={_auth_header(token)}"])
     cmd.extend(args)
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"

@@ -67,6 +67,19 @@ def cs1_ids(records: list[dict]) -> set[str]:
     return {r["cve_id"] for r in records if r.get("cwe_in_cvepath")}
 
 
+def hunks_available(layout: Layout, records: list[dict]) -> set[str]:
+    """CVEs that already have hunk JSON on disk.
+
+    Derived from the files rather than a funnel list so that a partial or
+    ``--cve``-scoped run can still tell which CVEs are eligible downstream.
+    """
+    return {
+        r["cve_id"]
+        for r in records
+        if (layout.hunks / f"{folder_slug(r['cve_id'], r.get('project') or '')}.json").is_file()
+    }
+
+
 def filter_removed_hunks(layout: Layout, records: list[dict]) -> set[str]:
     """Write hunk JSON for the CS-1 pool; return the CVEs that keep lines."""
     pool = [r for r in records if r.get("cwe_in_cvepath")]

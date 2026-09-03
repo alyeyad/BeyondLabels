@@ -734,6 +734,8 @@ For a quick end-to-end check that does not scan the whole advisory feed:
 python scripts/collect_post_cutoff.py --max-advisories 200 --n 1
 ```
 
+To run later stages on one already-collected CVE (repeatable), pass `--cve CVE-...`. That does not rewrite the full-run funnel lists under `funnel/`.
+
 ### Collection outputs
 
 Everything lands under `output/post_cutoff/` (gitignored):
@@ -898,6 +900,7 @@ python scripts/collect_post_cutoff.py [OPTIONS]
 Scope:
 - `--language {Python,Java}` default: `Python` (only Python is wired through PC-1/PC-2)
 - `--n INT` stop once this many CVEs have PF-1 paths; default: no limit
+- `--cve CVE-ID` restrict everything after discovery to these CVEs (repeatable)
 - `--cutoff YYYY-MM-DD` default: `2025-08-31`
 - `--since YYYY-MM-DD` GHSA published-on-or-after date; default: `2025-09-01`
 - `--stages STR` comma-separated subset of `collect,cs1,cs2,clone,pc1,pc2,pack`; default: `all`
@@ -928,6 +931,7 @@ Smoke tests and caching:
 Notes:
 - Needs `GITHUB_TOKEN`, ideally `NVD_API_KEY`, and a key for the CS-2 provider.
 - The pipeline stops at PF-1; PF-2 is a manual review and is not automated.
+- `--cve` is for smoke tests and reruns of a known ID. It does not overwrite `funnel/01`–`11` from a full collection.
 - Output in `<out>/cvepath/<language>/` uses CVEPath layout and can be passed to `run_llms_on_cvepath.py --dataset-dir`.
 
 ---

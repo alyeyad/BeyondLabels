@@ -47,7 +47,6 @@ from src.post_cutoff.config import (  # noqa: E402
     PROMPT_PATH,
     QUERY_PACKS,
     Layout,
-    load_ids,
     log,
     resolve_codeql,
     warn,
@@ -84,6 +83,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--since",
         default=DEFAULT_SINCE,
         help=f"GHSA published-on-or-after date (default {DEFAULT_SINCE}).",
+    )
+    parser.add_argument(
+        "--cve",
+        action="append",
+        default=None,
+        metavar="CVE-ID",
+        help="Restrict everything after discovery to these CVEs (repeatable).",
     )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Run directory.")
     parser.add_argument(
@@ -151,9 +157,17 @@ def main() -> int:
     codeql = resolve_codeql(args.codeql)
     language = args.language
     resume = not args.no_resume
+    # A --cve run covers part of the pool, so its stage results must not
+    # overwrite the funnel of a full run.
+    scoped = bool(args.cve)
+
+    def record_stage(stage: str, cves: set[str]) -> set[str]:
+        if not scoped:
+            funnel.write(layout, {stage: cves})
+        return cves
 
     log(f"[run] language={language} n={args.n or 'all'} out={layout.root}")
-    log(f"[run] stages={stages}")
+    log(f"[run] stages={stages}" + (" (scoped to --cve)" if scoped else ""))
 
     # --- Discovery, CS-1 gate on CWE support, and metadata --------------------
     if "collect" in stages:
@@ -167,36 +181,42 @@ def main() -> int:
             max_advisories=args.max_advisories,
         )
         collect.write_outputs(layout, records)
-        funnel.write(layout, discovery)
+        if not scoped:
+            funnel.write(layout, discovery)
     records = collect.load_records(layout.candidates)
     records = [r for r in records if r.get("cve_language") == language]
+    if scoped:
+        wanted = set(args.cve)
+        records = [r for r in records if r["cve_id"] in wanted]
+        missing = wanted - {r["cve_id"] for r in records}
+        if missing:
+            warn(f"[run] --cve not in the {language} candidate pool: {sorted(missing)}")
     log(f"[run] {len(records)} {language} candidate records")
 
     # --- CS-1: path-problem CWE, then drop addition-only fixes ---------------
     if "cs1" in stages:
-        funnel.write(layout, {"cs1": cs1.cs1_ids(records)})
-        funnel.write(layout, {"removed_lines": cs1.filter_removed_hunks(layout, records)})
-    hunk_pool = load_ids(layout.funnel_file("removed_lines"))
-    pool = [r for r in records if r["cve_id"] in hunk_pool]
+        record_stage("cs1", cs1.cs1_ids(records))
+        record_stage("removed_lines", cs1.filter_removed_hunks(layout, records))
+    # Pools come from the stage artifacts, not the funnel lists, so that a
+    # partial or --cve-scoped run resumes correctly.
+    pool = [r for r in records if r["cve_id"] in cs1.hunks_available(layout, records)]
 
     # --- CS-2: keep CVEs with a vulnerability-path-fixing file ---------------
     if "cs2" in stages:
-        funnel.write(
-            layout,
-            {
-                "cs2": cs2.classify(
-                    layout,
-                    pool,
-                    model=args.cs2_model,
-                    provider=args.cs2_provider,
-                    workers=args.cs2_workers,
-                    limit=args.cs2_limit,
-                    prompt=args.cs2_prompt,
-                )
-            },
+        record_stage(
+            "cs2",
+            cs2.classify(
+                layout,
+                pool,
+                model=args.cs2_model,
+                provider=args.cs2_provider,
+                workers=args.cs2_workers,
+                limit=args.cs2_limit,
+                prompt=args.cs2_prompt,
+            ),
         )
-    cs2_pool_ids = load_ids(layout.funnel_file("cs2"))
-    cs2_pool = [r for r in records if r["cve_id"] in cs2_pool_ids]
+    cs2_keep = cs2.passed_ids(layout, pool, args.cs2_model)
+    cs2_pool = [r for r in pool if r["cve_id"] in cs2_keep]
     log(f"[run] CS-2 pool: {len(cs2_pool)}")
 
     # --- Clone the vulnerable revision ---------------------------------------
@@ -210,18 +230,13 @@ def main() -> int:
 
     # --- PC-1: CodeQL databases ----------------------------------------------
     if "pc1" in stages:
-        funnel.write(
-            layout,
-            {
-                "pc1": build_db.build_all(
-                    layout, cs2_pool, codeql=codeql, language=language
-                )
-            },
+        record_stage(
+            "pc1", build_db.build_all(layout, cs2_pool, codeql=codeql, language=language)
         )
 
     # --- PC-1 augmentation, PC-2 analysis, PF-1 overlap ----------------------
     if "pc2" in stages:
-        pf1 = run_queries.run_all(
+        pf1_ids = run_queries.run_all(
             layout,
             cs2_pool,
             codeql=codeql,
@@ -232,25 +247,23 @@ def main() -> int:
             ram=args.ram,
             query_packs=args.query_packs,
         )
-        funnel.write(
-            layout,
-            {"pc2": run_queries.pc2_ids(layout, cs2_pool), "pf1": pf1},
-        )
+        record_stage("pc2", run_queries.pc2_ids(layout, cs2_pool))
+        record_stage("pf1", pf1_ids)
 
     # --- Pack PF-1 survivors in CVEPath layout -------------------------------
     if "pack" in stages:
-        pf1_ids = load_ids(layout.funnel_file("pf1"))
-        packed = pack_pf1.pack_all(
-            layout, [r for r in cs2_pool if r["cve_id"] in pf1_ids], language=language
-        )
+        packed = pack_pf1.pack_all(layout, cs2_pool, language=language)
         if args.n is not None and len(packed) < args.n:
             warn(
                 f"[run] packed {len(packed)} CVEs but --n was {args.n}; "
                 "widen --since or re-run to continue where this left off"
             )
 
-    funnel.write_markdown(layout, language=language, cutoff=args.cutoff, since=args.since)
-    funnel.print_summary(layout)
+    if not scoped:
+        funnel.write_markdown(
+            layout, language=language, cutoff=args.cutoff, since=args.since
+        )
+        funnel.print_summary(layout)
     log(f"[run] CVEPath-layout output: {layout.cvepath / language}")
     return 0
 
