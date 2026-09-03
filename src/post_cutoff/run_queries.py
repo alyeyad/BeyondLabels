@@ -71,10 +71,33 @@ def _path_match(left: str, right: str) -> bool:
     return a == b or a.endswith("/" + b) or b.endswith("/" + a)
 
 
-def function_at_line(py_file: Path, line_number: int) -> str:
-    """Innermost function name containing ``line_number``, or empty."""
+def java_method_at_line(java_file: Path, line_number: int) -> str:
+    """Last MethodDeclaration whose start line is still at or before ``line_number``."""
     try:
-        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        import javalang
+    except ImportError:
+        return ""
+    try:
+        tree = javalang.parse.parse(java_file.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, Exception):  # noqa: BLE001 - parse errors
+        return ""
+    name, start = "", -1
+    for _, node in tree:
+        if not isinstance(node, javalang.tree.MethodDeclaration):
+            continue
+        if not (hasattr(node, "position") and node.position):
+            continue
+        if start < node.position.line <= line_number:
+            name, start = node.name, node.position.line
+    return name
+
+
+def function_at_line(source_file: Path, line_number: int, language: str = "") -> str:
+    """Innermost function/method name containing ``line_number``, or empty."""
+    if source_file.suffix.lower() == ".java" or language == "Java":
+        return java_method_at_line(source_file, line_number)
+    try:
+        tree = ast.parse(source_file.read_text(encoding="utf-8"), filename=str(source_file))
     except (OSError, SyntaxError, UnicodeDecodeError, ValueError):
         return ""
 
@@ -150,7 +173,9 @@ def build_augmentation_hunks(
             start = int(hunk.get("start_line") or 0)
             method = ""
             if abs_file is not None and start > 0:
-                method = function_at_line(abs_file, start)
+                method = function_at_line(
+                    abs_file, start, language=str(rec.get("cve_language") or "")
+                )
             hunks_out.append(
                 {
                     "method_name": method,

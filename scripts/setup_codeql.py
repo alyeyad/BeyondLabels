@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Download and unpack the CodeQL CLI used to build the post-cutoff databases.
+"""Download the CodeQL CLI and the Java/Python libraries the queries need.
 
-The paper used CodeQL CLI 2.15.3 (``codeql/python-all`` 0.11.3,
-``codeql/python-queries`` 0.9.3), which matches the ``cliVersion`` pinned in
-``query_packs/base_queries/Python/qlpack.yml``. Cloning ``github/codeql`` gives
-only the QL sources, not the binary, so this fetches the release archive from
-``github/codeql-cli-binaries``.
+The paper used CodeQL CLI 2.15.3. The official ``codeql-cli-binaries`` zip is
+extractors only; the post-cutoff run used a 2.15.3 tree that already had
+``codeql/python-all`` 0.11.3 and ``codeql/java-all`` 0.8.3 on the CLI search
+path. This script unpacks the CLI, then downloads those packs (and their
+dependencies) into ``<dest>/qlpacks/`` so both languages resolve the same way.
 
 Writes ``tools/codeql/`` (gitignored). Point ``CODEQL_PATH`` at an existing
-install to skip the download.
+2.15.3 install to skip the CLI download; packs are still installed unless
+``--skip-packs`` is set.
 """
 
 from __future__ import annotations
@@ -33,6 +34,18 @@ DEFAULT_DEST = PROJECT_ROOT / "tools" / "codeql"
 RELEASE_URL = (
     "https://github.com/github/codeql-cli-binaries/releases/download/"
     "v{version}/codeql-{platform}.zip"
+)
+
+# Versions the post-cutoff Python run and the shipped Java qlpack actually used.
+LIBRARY_PACKS = (
+    "codeql/python-all@0.11.3",
+    "codeql/java-all@0.8.3",
+    "codeql/suite-helpers@0.7.3",
+    "codeql/util@0.2.3",
+)
+QUERY_PACK_DIRS = (
+    PROJECT_ROOT / "query_packs" / "base_queries" / "Python",
+    PROJECT_ROOT / "query_packs" / "base_queries" / "Java",
 )
 
 PLATFORM_ASSETS = {
@@ -98,6 +111,16 @@ def download(url: str, dest_file: Path) -> None:
     print(f"Downloaded {done // (1024 * 1024)} MiB", flush=True)
 
 
+def restore_execute_bits(dest: Path) -> None:
+    """zipfile drops the executable bit on binaries and extractor scripts."""
+    for path in dest.rglob("*"):
+        if not path.is_file():
+            continue
+        if not path.suffix or path.suffix == ".sh":
+            path.chmod(path.stat().st_mode | 0o111)
+    codeql_binary(dest).chmod(codeql_binary(dest).stat().st_mode | 0o111)
+
+
 def unpack(archive: Path, dest: Path) -> None:
     """Extract the archive's top-level ``codeql/`` directory into ``dest``."""
     if dest.exists():
@@ -114,11 +137,88 @@ def unpack(archive: Path, dest: Path) -> None:
                 raise SystemExit(f"unexpected archive layout: {[p.name for p in entries]}")
             inner = entries[0]
         shutil.move(str(inner), str(dest))
-    # zipfile drops the executable bit.
-    for path in dest.rglob("*"):
-        if path.is_file() and not path.suffix:
-            path.chmod(path.stat().st_mode | 0o111)
-    codeql_binary(dest).chmod(codeql_binary(dest).stat().st_mode | 0o111)
+    restore_execute_bits(dest)
+
+
+def _run_codeql(binary: Path, args: list[str]) -> None:
+    cmd = [str(binary), *args]
+    print("+", " ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True)
+
+
+# Only these versions go on the CLI search path. A fuller ~/.codeql cache may
+# also hold newer packs (java-all 7.x, python-all 0.8.3) that must not win.
+STAGE_PACKS = {
+    "python-all": "0.11.3",
+    "java-all": "0.8.3",
+    "suite-helpers": "0.7.3",
+    "util": "0.2.3",
+    "dataflow": "0.1.3",
+    "mad": "0.2.3",
+    "regex": "0.2.3",
+    "ssa": "0.2.3",
+    "tutorial": "0.2.3",
+    "yaml": "0.2.3",
+    "rangeanalysis": "0.0.2",
+    "threat-models": "0.0.2",
+    "typetracking": "0.2.3",
+}
+
+
+def pack_cache_root() -> Path:
+    return Path.home() / ".codeql" / "packages"
+
+
+def stage_packs_into_cli(dest: Path) -> None:
+    """Copy the 2.15.3-era libraries into ``<dest>/qlpacks`` so the CLI finds them."""
+    cache = pack_cache_root() / "codeql"
+    qlpacks = dest / "qlpacks" / "codeql"
+    for name, version in STAGE_PACKS.items():
+        src = cache / name / version
+        if not src.is_dir():
+            continue
+        target = qlpacks / name / version
+        if target.is_dir():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(src, target)
+        print(f"Staged {name}@{version} into {target}", flush=True)
+
+
+def install_library_packs(binary: Path, dest: Path) -> None:
+    """Download Java/Python libraries and make them visible to this CLI."""
+    _run_codeql(binary, ["pack", "download", *LIBRARY_PACKS])
+    for pack_dir in QUERY_PACK_DIRS:
+        if pack_dir.is_dir():
+            _run_codeql(binary, ["pack", "install", str(pack_dir)])
+    stage_packs_into_cli(dest)
+
+
+def ensure_cli(dest: Path, version: str, platform_name: str, force: bool) -> Path:
+    binary = codeql_binary(dest)
+    current = installed_version(binary)
+    if current and not force:
+        if current != version:
+            raise SystemExit(
+                f"{binary} is CodeQL {current}, expected {version}\n"
+                "Pass --force to replace it."
+            )
+        print(f"CodeQL {current} already installed at {binary}")
+        restore_execute_bits(dest)
+        return binary
+
+    url = RELEASE_URL.format(version=version, platform=platform_name)
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / f"codeql-{platform_name}.zip"
+        download(url, archive)
+        print(f"Unpacking into {dest}", flush=True)
+        unpack(archive, dest)
+
+    found = installed_version(binary)
+    if found != version:
+        raise SystemExit(f"installed CodeQL reports {found!r}, expected {version!r}")
+    print(f"CodeQL {found} ready at {binary}")
+    return binary
 
 
 def main() -> int:
@@ -132,34 +232,19 @@ def main() -> int:
         help="Release asset (default: detected from the host).",
     )
     parser.add_argument("--force", action="store_true", help="Re-download even if present.")
+    parser.add_argument(
+        "--skip-packs",
+        action="store_true",
+        help="Install the CLI only; do not download Java/Python qlpacks.",
+    )
     args = parser.parse_args()
 
-    binary = codeql_binary(args.dest)
-    current = installed_version(binary)
-    if current and not args.force:
-        if current == args.version:
-            print(f"CodeQL {current} already installed at {binary}")
-            return 0
-        print(f"warning: {binary} is CodeQL {current}, expected {args.version}", file=sys.stderr)
-        print("Pass --force to replace it.", file=sys.stderr)
-        return 1
-
-    asset = args.platform or detect_platform()
-    url = RELEASE_URL.format(version=args.version, platform=asset)
-    with tempfile.TemporaryDirectory() as tmp:
-        archive = Path(tmp) / f"codeql-{asset}.zip"
-        download(url, archive)
-        print(f"Unpacking into {args.dest}", flush=True)
-        unpack(archive, args.dest)
-
-    found = installed_version(binary)
-    if found != args.version:
-        print(
-            f"error: installed CodeQL reports {found!r}, expected {args.version!r}",
-            file=sys.stderr,
-        )
-        return 1
-    print(f"CodeQL {found} ready at {binary}")
+    binary = ensure_cli(
+        args.dest, args.version, args.platform or detect_platform(), args.force
+    )
+    if not args.skip_packs:
+        print("Installing Java and Python query libraries …", flush=True)
+        install_library_packs(binary, args.dest)
     print(f"Use it with: export CODEQL_PATH={binary}")
     return 0
 

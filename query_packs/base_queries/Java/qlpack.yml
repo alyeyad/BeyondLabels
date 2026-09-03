@@ -1,0 +1,18 @@
+---
+library: false
+warnOnImplicitThis: true
+name: codeql/java-queries
+version: 0.8.3
+buildMetadata:
+  sha: ff65ffafb003e86bd4c18f2c031f5faaf6f1038b
+  cliVersion: 2.15.3
+dependencies:
+  codeql/java-all: 0.8.3
+  codeql/suite-helpers: 0.7.3
+  codeql/util: 0.2.3
+suites: codeql-suites
+extractor: java
+groups:
+ - java
+ - queries
+defaultSuiteFile: codeql-suites/java-code-scanning.qls

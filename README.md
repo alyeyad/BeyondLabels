@@ -92,7 +92,9 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
 │   ├── llmpath_prompt.txt
 │   └── llm_multifile_labelling.txt
 ├── query_packs/
+│   ├── base_queries/Java/
 │   ├── base_queries/Python/
+│   ├── custom-cwe-queries/Java/
 │   └── custom-cwe-queries/Python/
 ├── requirements.txt
 ├── scripts/
@@ -118,7 +120,7 @@ CVEPath runs default to **4 repetitions** per query (`--runs 4`, `--temperature 
     └── utils/
 ```
 
-`query_packs/` holds the CodeQL queries the study design uses to construct candidate paths: `base_queries/` are the shared library files and `custom-cwe-queries/` has one folder per CWE. Only the Python packs are shipped, since the post-cutoff collection is Python-only.
+`query_packs/` holds the CodeQL queries the study design uses to construct candidate paths: `base_queries/` are the shared library files and `custom-cwe-queries/` has one folder per CWE. Python and Java packs are both shipped. The Java `qlpack.yml` pins `cliVersion: 2.15.3`; the Python pack pins `codeql/python-all` 0.11.3 (the library the post-cutoff run used).
 
 The project writes outputs under:
 
@@ -685,24 +687,24 @@ The pipeline stops at **PF-1**. PF-2, the manual review in which an author confi
 
 | Stage | What it does |
 |---|---|
-| Discovery | Reviewed GitHub advisories published on or after `--since` in the `pip` ecosystem, restricted to those carrying a CVE id. |
+| Discovery | Reviewed GitHub advisories published on or after `--since` in the language's ecosystems (`pip` for Python, `maven` and `gradle` for Java), restricted to those carrying a CVE id. |
 | Metadata | Fix commit from a GHSA commit reference, else an OSV `FIX` reference, else an NVD reference; the vulnerable revision is that commit's first parent. Kept only when both the NVD publish date and the fix-commit date fall strictly after `--cutoff`. |
-| CS-1 | Keep CVEs whose NVD CWE has an `@kind path-problem` query in `query_packs/custom-cwe-queries/Python/`, then drop addition-only fixes (a fix must delete or replace lines for a vulnerable hunk to exist). |
+| CS-1 | Keep CVEs whose NVD CWE has an `@kind path-problem` query in `query_packs/custom-cwe-queries/<language>/`, then drop addition-only fixes (a fix must delete or replace lines for a vulnerable hunk to exist). |
 | CS-2 | Label the changed files of multi-file fix commits with an LLM and keep CVEs with at least one `vulnerability-path-fixing` file. Single-file fix commits skip the call. |
 | Clone | Blobless clone of each repository, detached at the vulnerable parent commit. |
-| PC-1 | `codeql database create --language=python` on that checkout, then generate `MySources.qll`, `MySinks.qll` and `MySummaries.qll` from the vulnerable hunks to augment the CWE queries. |
+| PC-1 | Build a CodeQL database on that checkout, then generate `MySources.qll`, `MySinks.qll` and `MySummaries.qll` from the vulnerable hunks to augment the CWE queries. Python uses `codeql database create --language=python` with no `--command`. Java probes Maven/Gradle (wrappers first) × each `--jdk` / `$JAVA_HOME` with `codeql database create --language=java --command …` (tests skipped); there is no no-command Java fallback. |
 | PC-2 | `codeql database analyze` with the augmented queries; SARIF code flows become candidate paths. |
 | PF-1 | Keep the candidate paths with the maximum number of distinct vulnerable hunks touched. |
 
 ### 1. Install CodeQL 2.15.3
 
-The paper used CodeQL CLI **2.15.3**, which matches the `cliVersion` pinned in `query_packs/base_queries/Python/qlpack.yml`. Cloning `github/codeql` gives the QL sources but not the binary, so the setup script downloads the release archive:
+The paper used CodeQL CLI **2.15.3**. The official CLI zip is extractors only; the post-cutoff run also needed `codeql/python-all` **0.11.3** and `codeql/java-all` **0.8.3** on the CLI search path (the Java `qlpack.yml` pins `cliVersion: 2.15.3`). The setup script downloads the CLI and those libraries:
 
 ```bash
 python scripts/setup_codeql.py
 ```
 
-This unpacks the CLI into `tools/codeql/` (gitignored) and verifies that `codeql version` reports 2.15.3. If you already have that version installed, skip this and set `CODEQL_PATH` in `scripts/.env` instead.
+This unpacks the CLI into `tools/codeql/` (gitignored), puts the packs in `tools/codeql/qlpacks/`, and runs `codeql pack install` on `query_packs/base_queries/{Python,Java}`. If you already have CLI 2.15.3, point `CODEQL_PATH` at it and still run the script so the packs are installed.
 
 ### 2. Add collection tokens
 
@@ -720,7 +722,12 @@ python scripts/collect_post_cutoff.py --language Python --n 14
 
 `--n` is the number of CVEs that must end up with non-empty PF-1 paths. Discovery and the selection stages always run over the full pool, since CS-2 has to leave enough repositories to work with; cloning, database building and querying then proceed smallest repository first and stop as soon as `--n` is reached. Omit `--n` to run every candidate.
 
-Only `--language Python` is wired through PC-1 and PC-2. Java databases need a per-project build command, which the shipped packs do not provide.
+Java PC-1 needs a JDK plus Maven and/or Gradle. Wrappers in the cloned repo (`mvnw`, `gradlew`) are enough; otherwise `mvn`/`gradle` must be on `PATH`, or pass `--mvn` / `--gradle`. Point `--jdk` at whichever JDKs you have (repeatable); `$JAVA_HOME` is also tried. Do not copy machine-specific sdkman paths. Example:
+
+```bash
+python scripts/collect_post_cutoff.py --language Java --n 14 \
+  --jdk /usr/lib/jvm/java-17-openjdk
+```
 
 Every HTTP response is cached under `output/post_cutoff/cache/`, and each stage skips work it has already done, so an interrupted run can simply be restarted. To rerun one part in isolation, pass a stage subset:
 
@@ -886,9 +893,11 @@ Options:
 - `--dest PATH` default: `tools/codeql`
 - `--platform {linux64,osx64,win64}` default: detected from the host
 - `--force` re-download over an existing install
+- `--skip-packs` CLI only; do not download Java/Python qlpacks
 
 Notes:
 - Downloads from the `github/codeql-cli-binaries` releases and verifies the unpacked `codeql version`.
+- Then downloads `codeql/python-all@0.11.3` and `codeql/java-all@0.8.3` (and their 2.15.3-era dependencies) into `tools/codeql/qlpacks/`, which is what makes both languages compile.
 - Only the post-cutoff collection uses CodeQL; nothing else in the package needs it.
 
 ### `collect_post_cutoff.py`
@@ -898,7 +907,7 @@ python scripts/collect_post_cutoff.py [OPTIONS]
 ```
 
 Scope:
-- `--language {Python,Java}` default: `Python` (only Python is wired through PC-1/PC-2)
+- `--language {Python,Java}` default: `Python` (Python: no-command extract; Java: Maven/Gradle × JDK probe)
 - `--n INT` stop once this many CVEs have PF-1 paths; default: no limit
 - `--cve CVE-ID` restrict everything after discovery to these CVEs (repeatable)
 - `--cutoff YYYY-MM-DD` default: `2025-08-31`
@@ -922,6 +931,9 @@ Clone and CodeQL:
 - `--clone-retries INT` default: `5`
 - `--threads INT` CodeQL threads; default: `6`
 - `--ram INT` CodeQL RAM in MB; default: `24576`
+- `--jdk PATH` JAVA_HOME to try for Java PC-1 (repeatable); also uses `$JAVA_HOME`
+- `--mvn PATH` extra Maven binary for Java PC-1 (repeatable); wrappers are tried first
+- `--gradle PATH` extra Gradle binary for Java PC-1 (repeatable); wrappers are tried first
 
 Smoke tests and caching:
 - `--max-advisories INT` cap the advisories scanned

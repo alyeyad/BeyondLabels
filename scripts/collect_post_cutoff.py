@@ -49,6 +49,7 @@ from src.post_cutoff.config import (  # noqa: E402
     Layout,
     custom_cwe_queries,
     log,
+    require_language_packs,
     resolve_codeql,
     warn,
 )
@@ -65,8 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--language",
         choices=["Python", "Java"],
         default="Python",
-        help="Only Python is wired through PC-1/PC-2 (Java databases need a "
-             "per-project build command). Default: Python.",
+        help="Python (no-command extract) or Java (Maven/Gradle × JDK probe). Default: Python.",
     )
     parser.add_argument(
         "--n",
@@ -111,6 +111,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--clone-retries", type=int, default=5)
     parser.add_argument("--threads", type=int, default=6, help="CodeQL threads.")
     parser.add_argument("--ram", type=int, default=24576, help="CodeQL RAM in MB.")
+    parser.add_argument(
+        "--jdk",
+        action="append",
+        default=None,
+        type=Path,
+        help="JAVA_HOME to try for Java PC-1 (repeatable). Also uses $JAVA_HOME.",
+    )
+    parser.add_argument(
+        "--mvn",
+        action="append",
+        default=None,
+        help="Extra Maven binary for Java PC-1 (repeatable). Wrappers are tried first.",
+    )
+    parser.add_argument(
+        "--gradle",
+        action="append",
+        default=None,
+        help="Extra Gradle binary for Java PC-1 (repeatable). Wrappers are tried first.",
+    )
 
     parser.add_argument(
         "--max-advisories",
@@ -159,6 +178,7 @@ def main() -> int:
     language = args.language
     resume = not args.no_resume
     query_root = custom_cwe_queries(args.query_packs)
+    require_language_packs(language, args.query_packs)
     # A --cve run covers part of the pool, so its stage results must not
     # overwrite the funnel of a full run.
     scoped = bool(args.cve)
@@ -234,7 +254,16 @@ def main() -> int:
     # --- PC-1: CodeQL databases ----------------------------------------------
     if "pc1" in stages:
         record_stage(
-            "pc1", build_db.build_all(layout, cs2_pool, codeql=codeql, language=language)
+            "pc1",
+            build_db.build_all(
+                layout,
+                cs2_pool,
+                codeql=codeql,
+                language=language,
+                jdks=args.jdk or [],
+                extra_mvn=args.mvn or [],
+                extra_gradle=args.gradle or [],
+            ),
         )
 
     # --- PC-1 augmentation, PC-2 analysis, PF-1 overlap ----------------------

@@ -25,7 +25,7 @@ DEFAULT_CS2_MODEL = "claude-opus-5"
 
 LANG_ECOSYSTEMS = {
     "Python": ["pip"],
-    "Java": ["maven"],
+    "Java": ["maven", "gradle"],
 }
 
 # CVE-ID lists written after each funnel stage; see funnel.py.
@@ -147,3 +147,14 @@ def github_token() -> str:
 def custom_cwe_queries(query_packs: Path | str | None = None) -> Path:
     """``<query_packs>/custom-cwe-queries`` — the tree CS-1 and PC-1 read."""
     return (Path(query_packs) if query_packs else QUERY_PACKS) / "custom-cwe-queries"
+
+
+def require_language_packs(language: str, query_packs: Path | str | None = None) -> Path:
+    """Return the language CWE-query dir, or exit if it is missing."""
+    lang_dir = custom_cwe_queries(query_packs) / language
+    if not lang_dir.is_dir():
+        raise SystemExit(
+            f"no {language} query pack at {lang_dir}\n"
+            "Ship query_packs/custom-cwe-queries/{language}/ or pass --query-packs."
+        )
+    return lang_dir

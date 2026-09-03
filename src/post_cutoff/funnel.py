@@ -13,7 +13,7 @@ STAGE_NOTES = [
     ("ghsa", "GHSA reviewed + CVE id",
      "Reviewed GHSA advisories in the selected ecosystems published on or after `--since`, carrying a CVE id."),
     ("language", "Target language",
-     "GHSA ecosystem maps to the requested language (pip -> Python, maven -> Java)."),
+     "GHSA ecosystem maps to the requested language (pip -> Python, maven/gradle -> Java)."),
     ("github_fix", "GitHub fix commit",
      "Fix SHA from a GHSA commit reference, else an OSV `FIX` reference, else an NVD reference."),
     ("parent_sha", "Parent (vulnerable) SHA",

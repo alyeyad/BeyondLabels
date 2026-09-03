@@ -1,7 +1,7 @@
 """Discovery: GHSA advisories to CVEPath-shaped metadata records.
 
 Reviewed GHSA advisories published on or after ``since`` are mapped to a
-language by ecosystem (pip -> Python, maven -> Java). The fix commit comes from
+language by ecosystem (pip -> Python, maven/gradle -> Java). The fix commit comes from
 a GHSA commit reference, else an OSV ``FIX`` reference, else an NVD reference;
 the vulnerable revision is that commit's first parent. A record is kept only if
 the NVD publish date *and* the fix-commit date are both strictly after
