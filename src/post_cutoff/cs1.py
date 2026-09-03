@@ -1,8 +1,10 @@
 """CS-1 and the removed-line hunk filter.
 
 CS-1 keeps a CVE when at least one of its NVD CWEs has an ``@kind path-problem``
-query for that language under ``query_packs/custom-cwe-queries/``; that check
-runs during collection and is stored as ``cwe_in_cvepath``.
+query for that language under ``query_packs/custom-cwe-queries/`` (or the
+``custom-cwe-queries`` tree of ``--query-packs``). The check is stored on each
+record as ``cwe_in_cvepath`` at collect time and re-evaluated from the packs
+if CS-1 is run on its own.
 
 The hunk filter then drops addition-only fixes: a CVE survives when some changed
 file deletes or replaces lines, was deleted outright, or is a modified/renamed
@@ -16,7 +18,7 @@ import json
 
 from src.post_cutoff.config import Layout, log
 from src.post_cutoff.hunks import extract_removed_hunks, hunk_list_to_output
-from src.post_cutoff.schema import folder_slug
+from src.post_cutoff.schema import cwe_in_cvepath, folder_slug
 
 
 def file_keep_kind(detail: dict) -> str:
@@ -62,9 +64,17 @@ def process_record(record: dict) -> tuple[bool, str, list[dict]]:
     return False, "addition_only", extracted
 
 
-def cs1_ids(records: list[dict]) -> set[str]:
+def _passes_cs1(record: dict, query_root=None) -> bool:
+    return cwe_in_cvepath(
+        record.get("cwe_id") or [],
+        record.get("cve_language"),
+        query_root,
+    )
+
+
+def cs1_ids(records: list[dict], query_root=None) -> set[str]:
     """CVEs whose CWE set has a path-problem query pack (CS-1)."""
-    return {r["cve_id"] for r in records if r.get("cwe_in_cvepath")}
+    return {r["cve_id"] for r in records if _passes_cs1(r, query_root)}
 
 
 def hunks_available(layout: Layout, records: list[dict]) -> set[str]:
@@ -80,9 +90,9 @@ def hunks_available(layout: Layout, records: list[dict]) -> set[str]:
     }
 
 
-def filter_removed_hunks(layout: Layout, records: list[dict]) -> set[str]:
+def filter_removed_hunks(layout: Layout, records: list[dict], query_root=None) -> set[str]:
     """Write hunk JSON for the CS-1 pool; return the CVEs that keep lines."""
-    pool = [r for r in records if r.get("cwe_in_cvepath")]
+    pool = [r for r in records if _passes_cs1(r, query_root)]
     layout.hunks.mkdir(parents=True, exist_ok=True)
 
     kept: set[str] = set()

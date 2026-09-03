@@ -142,3 +142,8 @@ def resolve_codeql(explicit: Path | str | None = None) -> Path:
 
 def github_token() -> str:
     return (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "").strip()
+
+
+def custom_cwe_queries(query_packs: Path | str | None = None) -> Path:
+    """``<query_packs>/custom-cwe-queries`` — the tree CS-1 and PC-1 read."""
+    return (Path(query_packs) if query_packs else QUERY_PACKS) / "custom-cwe-queries"

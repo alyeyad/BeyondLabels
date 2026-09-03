@@ -109,6 +109,7 @@ def _collect_one(
     resume: bool,
     seen: set[tuple[str, str]],
     skipped: dict[str, int],
+    query_root: Path | None = None,
 ) -> dict | None:
     cve_id = advisory.get("cve_id")
     ghsa_id = advisory.get("ghsa_id")
@@ -200,6 +201,7 @@ def _collect_one(
             cache_dir=cache_dir,
             resume=resume,
         ),
+        query_root=query_root,
     )
 
 
@@ -212,6 +214,7 @@ def collect(
     resume: bool = True,
     limit: int | None = None,
     max_advisories: int | None = None,
+    query_root: Path | None = None,
 ) -> tuple[list[dict], dict[str, set[str]]]:
     """Return (kept records, per-stage CVE-ID sets for funnel steps 01-05)."""
     ecosystems: list[str] = []
@@ -261,6 +264,7 @@ def collect(
                 resume=resume,
                 seen=seen,
                 skipped=skipped,
+                query_root=query_root,
             )
         except (TimeoutError, URLError, OSError) as exc:
             skipped["http_error"] += 1

@@ -42,12 +42,17 @@ def normalize_cwes(values: Iterable[str] | None) -> list[str]:
     return seen
 
 
-@functools.lru_cache(maxsize=1)
-def path_problem_cwes(
-    query_root: str | None = None,
-) -> dict[str, frozenset[str]]:
-    """CWE ids that have at least one ``@kind path-problem`` query per language."""
+def _normalize_query_root(query_root: str | Path | None) -> str:
     root = Path(query_root) if query_root else DEFAULT_QUERY_ROOT
+    try:
+        return str(root.resolve())
+    except OSError:
+        return str(root)
+
+
+@functools.lru_cache(maxsize=8)
+def _path_problem_cwes_cached(query_root: str) -> dict[str, frozenset[str]]:
+    root = Path(query_root)
     by_lang: dict[str, set[str]] = {}
     if not root.is_dir():
         return {}
@@ -68,9 +73,24 @@ def path_problem_cwes(
     return {lang: frozenset(cwes) for lang, cwes in by_lang.items()}
 
 
-def cwe_in_cvepath(cwes: Iterable[str], language: str | None = None) -> bool:
+def path_problem_cwes(
+    query_root: str | Path | None = None,
+) -> dict[str, frozenset[str]]:
+    """CWE ids that have at least one ``@kind path-problem`` query per language.
+
+    ``query_root`` is the ``custom-cwe-queries`` directory (one language folder
+    per child). Cached per resolved path so CS-1 and PC-1 can share a scan.
+    """
+    return _path_problem_cwes_cached(_normalize_query_root(query_root))
+
+
+def cwe_in_cvepath(
+    cwes: Iterable[str],
+    language: str | None = None,
+    query_root: str | Path | None = None,
+) -> bool:
     """True if any CWE has a path-problem query for ``language`` (Java/Python)."""
-    allowed = path_problem_cwes().get(language or "", frozenset())
+    allowed = path_problem_cwes(query_root).get(language or "", frozenset())
     return any(cwe in allowed for cwe in cwes)
 
 
@@ -129,6 +149,7 @@ def build_record(
     commit_after_cutoff: bool,
     parent_sha: str,
     details: list[dict[str, Any]] | None = None,
+    query_root: str | Path | None = None,
 ) -> dict[str, Any]:
     owner, _, repo = project.partition("/")
     html_url = f"https://github.com/{project}/commit/{commit_id}"
@@ -168,7 +189,7 @@ def build_record(
         "sources": sources,
         "published_ok": published_ok,
         "commit_after_cutoff": commit_after_cutoff,
-        "cwe_in_cvepath": cwe_in_cvepath(cwe_id, cve_language),
+        "cwe_in_cvepath": cwe_in_cvepath(cwe_id, cve_language, query_root),
         "owner": owner,
         "repo": repo,
         "details": details or [],

@@ -908,7 +908,7 @@ Scope:
 Paths:
 - `--out PATH` default: `output/post_cutoff`
 - `--codeql PATH` default: `$CODEQL_PATH`, else `tools/codeql/codeql`
-- `--query-packs PATH` default: `query_packs`
+- `--query-packs PATH` default: `query_packs` (CS-1 path-problem CWE scan and PC-1/PC-2 query copy)
 
 CS-2 classifier:
 - `--cs2-model MODEL_NAME` default: `claude-opus-5`

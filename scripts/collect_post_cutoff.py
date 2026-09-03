@@ -47,6 +47,7 @@ from src.post_cutoff.config import (  # noqa: E402
     PROMPT_PATH,
     QUERY_PACKS,
     Layout,
+    custom_cwe_queries,
     log,
     resolve_codeql,
     warn,
@@ -157,6 +158,7 @@ def main() -> int:
     codeql = resolve_codeql(args.codeql)
     language = args.language
     resume = not args.no_resume
+    query_root = custom_cwe_queries(args.query_packs)
     # A --cve run covers part of the pool, so its stage results must not
     # overwrite the funnel of a full run.
     scoped = bool(args.cve)
@@ -179,6 +181,7 @@ def main() -> int:
             resume=resume,
             limit=args.limit,
             max_advisories=args.max_advisories,
+            query_root=query_root,
         )
         collect.write_outputs(layout, records)
         if not scoped:
@@ -195,8 +198,8 @@ def main() -> int:
 
     # --- CS-1: path-problem CWE, then drop addition-only fixes ---------------
     if "cs1" in stages:
-        record_stage("cs1", cs1.cs1_ids(records))
-        record_stage("removed_lines", cs1.filter_removed_hunks(layout, records))
+        record_stage("cs1", cs1.cs1_ids(records, query_root))
+        record_stage("removed_lines", cs1.filter_removed_hunks(layout, records, query_root))
     # Pools come from the stage artifacts, not the funnel lists, so that a
     # partial or --cve-scoped run resumes correctly.
     pool = [r for r in records if r["cve_id"] in cs1.hunks_available(layout, records)]
