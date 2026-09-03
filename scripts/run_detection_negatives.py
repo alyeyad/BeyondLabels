@@ -1,9 +1,10 @@
 """Run the RQ4 detection negatives with multi-run majority decoding (R3C12).
 
 Copy of ``run_llms_on_negative_samples.py`` that adds ``--runs``/``--seed``/
-``--temperature``/``--out-dir`` and calls the detection pipeline
+``--temperature``/``--out-dir``/``--distractors`` and calls the detection pipeline
 (``run_negative_samples_detect``), which applies the RQ1 / R2C3 decoding
-settings and tags each run with a run index. The original script is untouched.
+settings and tags each run with a run index. ``--distractors 0`` (default) is
+the oracle single-file setting. The original script is untouched.
 """
 
 import argparse
@@ -91,6 +92,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Negative-samples dataset root (default: data/negative_samples).",
     )
+    parser.add_argument(
+        "--distractors",
+        type=str,
+        default="0",
+        help="k extra test/docs files to append after the target (default 0 = oracle).",
+    )
+    parser.add_argument(
+        "--distractor-seed",
+        type=int,
+        default=1234,
+        help="Base seed mixed with model, language, and sample id.",
+    )
+    parser.add_argument(
+        "--distractor-repos-dir",
+        type=str,
+        default=None,
+        help="Root of full vulnerable-commit repo checkouts "
+             "(default: output/original_repos from clone_cvepath_repos.py).",
+    )
     return parser
 
 
@@ -111,6 +131,9 @@ def parse_args() -> tuple[RunConfig, int]:
         seed=args.seed,
         out_dir=args.out_dir,
         dataset_dir=args.dataset_dir,
+        distractors=args.distractors,
+        distractor_seed=args.distractor_seed,
+        distractor_repos_dir=args.distractor_repos_dir,
     )
     config.validate_paths()
     return config, args.workers

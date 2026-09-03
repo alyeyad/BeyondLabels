@@ -581,7 +581,7 @@ python scripts/run_detection_positives.py \
   --out-dir output/runs_detect_e3/k3
 ```
 
-Oracle RQ4 negatives (multi-run majority, no distractors):
+Oracle RQ4 negatives (multi-run majority, `k = 0`, no extra files):
 
 ```bash
 python scripts/run_detection_negatives.py \
@@ -590,6 +590,19 @@ python scripts/run_detection_negatives.py \
   --provider openai \
   --prompt-mode all \
   --out-dir output/runs_detect_neg
+```
+
+With `k > 0`, clone first. Extra files are test/docs-like paths from that negative's project checkout when it exists under `output/original_repos/`; otherwise other same-language cloned repos fill to `k`. Selection is deterministic (seed mixed with model, language, and sample id). Both prompts see the same extra files.
+
+```bash
+python scripts/clone_cvepath_repos.py
+python scripts/run_detection_negatives.py \
+  --language all \
+  --model gpt-4o \
+  --provider openai \
+  --prompt-mode all \
+  --distractors 5 \
+  --out-dir output/runs_detect_neg_k5
 ```
 
 `scripts/run_llms_on_negative_samples.py` remains the original single-run negatives path.
@@ -690,7 +703,7 @@ Same target and distractor flags as `run_llms_on_cvepath.py`, plus `--workers` (
 python scripts/run_detection_negatives.py [OPTIONS]
 ```
 
-Oracle RQ4 negatives with `--runs` / `--temperature` / `--seed` / `--workers` / `--out-dir`. Does not take `--distractors`.
+Oracle RQ4 negatives with `--runs` / `--temperature` / `--seed` / `--workers` / `--out-dir`. `--distractors` default `0` is the current single-file oracle. For `k > 0`, run `python scripts/clone_cvepath_repos.py` first; `--distractor-repos-dir` defaults to `output/original_repos`. Extra files are test/docs-like from that project's cloned tree when present, otherwise other same-language cloned repos fill to `k`.
 
 ### `run_llms_on_negative_samples.py`
 

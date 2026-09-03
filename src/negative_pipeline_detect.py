@@ -7,8 +7,8 @@ strengthening. It differs from the original only in that it:
   * uses the RQ1 / R2C3 decoding settings per model
     (``temperature = None`` for reasoning models, otherwise ``config.temperature``;
     ``seed = config.seed + run_index`` forwarded for OpenAI chat models),
-  * tags the output filename with ``_r{run_index}`` and logs the run index,
-    seed, and temperature so majority aggregation is auditable.
+    * tags the output filename with ``_k{k}_r{run_index}`` and logs the run index,
+    seed, temperature, and distractor selection so majority aggregation is auditable.
 
 The original ``negative_pipeline.py`` is left untouched.
 """
@@ -21,7 +21,12 @@ from src.detection_parallel import run_parallel
 from src.llm_runner.logger import save_log
 from src.llm_runner.runner import is_reasoning_model, send_prompt, setup_client
 
-from src.utils.config import RunConfig
+from src.utils.config import DEFAULT_CVEPATH_DATASET_DIR, RunConfig
+from src.utils.distractors import (
+    build_negative_checkout_index,
+    empty_negative_distractor_meta,
+    sample_negative_test_docs_distractors,
+)
 from src.utils.negative_dataset import (
     get_sample_record,
     list_sample_folders,
@@ -30,12 +35,17 @@ from src.utils.negative_dataset import (
 from src.utils.prompts import construct_prompt, get_prompts
 
 
+def _k_label(config: RunConfig) -> str:
+    return str(config.distractors).strip().lower() or "0"
+
+
 def make_output_filename(
     sample_id: str,
     model: str,
     prompt_name: str,
     language: str,
     run_index: int,
+    k: str = "0",
     timestamp: str | None = None,
 ) -> str:
     if timestamp is None:
@@ -46,7 +56,7 @@ def make_output_filename(
 
     return (
         f"{safe_sample_id}_{safe_model}_{prompt_name}_{language}"
-        f"_r{run_index}_{timestamp}.json"
+        f"_k{k}_r{run_index}_{timestamp}.json"
     )
 
 
@@ -75,6 +85,8 @@ def save_negative_run_log(
     run_index: int,
     seed_requested: int,
     temperature_requested,
+    k: str = "0",
+    distractor_meta: dict[str, Any] | None = None,
 ) -> None:
     out_file = make_output_filename(
         sample_id=sample_id,
@@ -82,6 +94,7 @@ def save_negative_run_log(
         prompt_name=prompt_name,
         language=language,
         run_index=run_index,
+        k=k,
     )
 
     save_log(
@@ -105,6 +118,8 @@ def save_negative_run_log(
             "seed_requested": seed_requested,
             "temperature_requested": temperature_requested,
             "usage": usage,
+            "distractors_k": k,
+            "distractor_meta": distractor_meta or empty_negative_distractor_meta(k=k),
         },
         out_dir=str(config.out_dir),
         fname=out_file,
@@ -147,7 +162,18 @@ def _run_negative_task(client, config: RunConfig, task: Dict[str, Any]) -> None:
         run_index=task["run_index"],
         seed_requested=task["run_seed"],
         temperature_requested=task["temperature"],
+        k=task.get("k", "0"),
+        distractor_meta=task.get("distractor_meta"),
     )
+
+
+def _exclude_names(source_path: Path, metadata: dict[str, Any] | None) -> list[str]:
+    names = [source_path.name]
+    if metadata:
+        file_name = metadata.get("file_name")
+        if file_name:
+            names.append(str(file_name))
+    return names
 
 
 def build_negative_tasks(config: RunConfig, prompt_dict: Dict[str, str]) -> list[Dict[str, Any]]:
@@ -155,6 +181,22 @@ def build_negative_tasks(config: RunConfig, prompt_dict: Dict[str, str]) -> list
     file reads happen here (cheap, local); each task performs one API call."""
     # Reasoning models reject a sampling temperature -> omit it (mirror cvepath).
     temperature = None if is_reasoning_model(config.model) else config.temperature
+    k_label = _k_label(config)
+    indexes: dict[str, tuple] = {}
+    listing_cache: dict[Path, list[str]] = {}
+    if config.distractors_enabled():
+        cvepath_dir = DEFAULT_CVEPATH_DATASET_DIR
+        repos_dir = Path(config.distractor_repos_dir)
+        for language in config.active_languages():
+            by_project, all_repos = build_negative_checkout_index(
+                cvepath_dir, repos_dir, language
+            )
+            indexes[language] = (by_project, all_repos)
+            if not all_repos:
+                print(
+                    f"[WARN] No cloned checkouts for language={language} under "
+                    f"{repos_dir}. Run: python scripts/clone_cvepath_repos.py"
+                )
 
     tasks: list[Dict[str, Any]] = []
     for language in config.active_languages():
@@ -181,6 +223,28 @@ def build_negative_tasks(config: RunConfig, prompt_dict: Dict[str, str]) -> list
                 print(f"[WARN] Could not read source file for {sample_id}: {exc}")
                 continue
 
+            if config.distractors_enabled():
+                by_project, all_repos = indexes[language]
+                project = (metadata or {}).get("project")
+                selected, distractor_meta = sample_negative_test_docs_distractors(
+                    language=language,
+                    project=project,
+                    sample_id=sample_id,
+                    model=config.model,
+                    k=config.distractors,
+                    seed=config.distractor_seed,
+                    by_project=by_project,
+                    all_repos=all_repos,
+                    exclude=_exclude_names(source_path, metadata),
+                    listing_cache=listing_cache,
+                )
+                for key, raw in selected:
+                    files[key] = raw
+            else:
+                distractor_meta = empty_negative_distractor_meta(
+                    seed=config.distractor_seed, k=0
+                )
+
             for prompt_name, prompt_template in prompt_dict.items():
                 input_prompt, input_text = construct_prompt(
                     template=prompt_template,
@@ -200,6 +264,8 @@ def build_negative_tasks(config: RunConfig, prompt_dict: Dict[str, str]) -> list
                         "run_index": run_index,
                         "run_seed": config.seed + run_index,
                         "temperature": temperature,
+                        "k": k_label,
+                        "distractor_meta": distractor_meta,
                     })
     return tasks
 
